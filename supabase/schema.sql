@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- ISKCON DEVOTEE CARE & PARCEL PORTAL — PRODUCTION SUPABASE SQL MIGRATION
--- Project: https://nghiqkgdrqxupxxrrlwb.supabase.co
+-- Project: https://qtkwpmxqhjbgbaibglhc.supabase.co
 -- Architecture: User -> Auth & RLS -> PostgreSQL DB -> Audit Trigger -> Dashboard
 -- ==============================================================================
 

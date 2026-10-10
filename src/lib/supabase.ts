@@ -58,18 +58,35 @@ export const testSupabaseConnection = async (
   try {
     const testClient = createClient(url, key);
     
-    // Test if we can read portal_settings or devotees
-    const { data, error } = await testClient.from('devotees').select('id').limit(1);
-    
-    if (error) {
-      if (error.message.includes('relation "public.devotees" does not exist')) {
-        return {
-          success: true,
-          tablesExist: false,
-          message: 'Connected to Supabase! However, database tables have not been created yet. Run the SQL schema from the Architecture tab.',
-        };
-      }
-      return { success: false, tablesExist: false, message: `Supabase Error: ${error.message}` };
+    const isMissingTable = (err: any) => {
+      if (!err) return false;
+      const msg = (err.message || '').toLowerCase();
+      return (
+        err.code === 'PGRST205' ||
+        msg.includes('relation') ||
+        msg.includes('does not exist') ||
+        msg.includes('schema cache') ||
+        msg.includes('not found')
+      );
+    };
+
+    // Test tables
+    const { error: devError } = await testClient.from('devotees').select('id').limit(1);
+    const { error: deptError } = await testClient.from('departments').select('id').limit(1);
+
+    if (isMissingTable(devError) || isMissingTable(deptError)) {
+      return {
+        success: true,
+        tablesExist: false,
+        message: 'Connected to Supabase! However, database tables have not been created yet. Run the SQL schema from the Architecture tab or Supabase SQL Editor.',
+      };
+    }
+
+    if (devError) {
+      return { success: false, tablesExist: false, message: `Supabase Error: ${devError.message}` };
+    }
+    if (deptError) {
+      return { success: false, tablesExist: false, message: `Supabase Error: ${deptError.message}` };
     }
 
     return { 
