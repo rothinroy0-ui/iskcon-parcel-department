@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS public.devotees (
 
 -- Safely ensure columns exist even if devotees table was pre-existing
 DO $$ BEGIN
+  ALTER TABLE public.devotees ADD COLUMN IF NOT EXISTS id UUID DEFAULT uuid_generate_v4();
   ALTER TABLE public.devotees ADD COLUMN IF NOT EXISTS spiritual_name TEXT;
   ALTER TABLE public.devotees ADD COLUMN IF NOT EXISTS legal_name TEXT NOT NULL DEFAULT 'Devotee';
   ALTER TABLE public.devotees ADD COLUMN IF NOT EXISTS initiation_status TEXT NOT NULL DEFAULT 'UNINITIATED';

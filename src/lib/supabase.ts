@@ -71,7 +71,7 @@ export const testSupabaseConnection = async (
     };
 
     // Test tables
-    const { error: devError } = await testClient.from('devotees').select('id').limit(1);
+    const { error: devError } = await testClient.from('devotees').select('*').limit(1);
     const { error: deptError } = await testClient.from('departments').select('id').limit(1);
 
     if (isMissingTable(devError) || isMissingTable(deptError)) {
@@ -117,7 +117,7 @@ export const seedSupabaseDatabase = async (client: SupabaseClient): Promise<{ su
     }
 
     // 2. Check devotees
-    const { data: existingDevotees } = await client.from('devotees').select('id').limit(1);
+    const { data: existingDevotees } = await client.from('devotees').select('*').limit(1);
     let seededDevoteesCount = 0;
     if (!existingDevotees || existingDevotees.length === 0) {
       const { data: depts } = await client.from('departments').select('id, name');
