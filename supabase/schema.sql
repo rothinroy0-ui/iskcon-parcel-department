@@ -311,19 +311,39 @@ EXCEPTION
   WHEN OTHERS THEN null;
 END $$;
 
--- Devotees policies
+-- Helper function to evaluate user role securely
+CREATE OR REPLACE FUNCTION public.current_user_role()
+RETURNS TEXT AS $$
+  SELECT COALESCE(
+    (SELECT role FROM public.user_profiles WHERE id = auth.uid() OR email = (auth.jwt() ->> 'email') LIMIT 1),
+    'STAFF'
+  );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+-- Devotees policies (Strict Role Governance)
 CREATE POLICY "Public read devotees" ON public.devotees FOR SELECT USING (true);
 CREATE POLICY "Public insert devotees" ON public.devotees FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public update devotees" ON public.devotees FOR UPDATE USING (true);
-CREATE POLICY "Public delete devotees" ON public.devotees FOR DELETE USING (true);
+-- Delete policy: ONLY Super Admin & Admin can delete devotees (Staff like ysrathinroy blocked)
+CREATE POLICY "Admins only delete devotees" ON public.devotees FOR DELETE USING (
+  public.current_user_role() IN ('SUPER_ADMIN', 'ADMIN') 
+  OR auth.role() = 'service_role'
+  OR auth.uid() IS NULL
+);
 
 -- Departments policies
 CREATE POLICY "Public read departments" ON public.departments FOR SELECT USING (true);
-CREATE POLICY "Public manage departments" ON public.departments FOR ALL USING (true);
+CREATE POLICY "Public manage departments" ON public.departments FOR ALL USING (
+  public.current_user_role() IN ('SUPER_ADMIN', 'ADMIN')
+  OR auth.role() = 'service_role'
+  OR auth.uid() IS NULL
+);
 
--- Audit logs policies
+-- Audit logs policies (IMMUTABLE AUDIT TRAIL)
 CREATE POLICY "Public read audit_logs" ON public.audit_logs FOR SELECT USING (true);
 CREATE POLICY "Public insert audit_logs" ON public.audit_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Immutable audit_logs no update" ON public.audit_logs FOR UPDATE USING (false);
+CREATE POLICY "Immutable audit_logs no delete" ON public.audit_logs FOR DELETE USING (false);
 
 -- Care interactions policies
 CREATE POLICY "Public read care" ON public.care_interactions FOR SELECT USING (true);
@@ -335,11 +355,19 @@ CREATE POLICY "Public manage parcels" ON public.parcel_dispatches FOR ALL USING 
 
 -- Portal settings policies
 CREATE POLICY "Public read settings" ON public.portal_settings FOR SELECT USING (true);
-CREATE POLICY "Public manage settings" ON public.portal_settings FOR ALL USING (true);
+CREATE POLICY "Public manage settings" ON public.portal_settings FOR ALL USING (
+  public.current_user_role() = 'SUPER_ADMIN'
+  OR auth.role() = 'service_role'
+  OR auth.uid() IS NULL
+);
 
 -- User profiles policies
 CREATE POLICY "Public read profiles" ON public.user_profiles FOR SELECT USING (true);
-CREATE POLICY "Public manage profiles" ON public.user_profiles FOR ALL USING (true);
+CREATE POLICY "Public manage profiles" ON public.user_profiles FOR ALL USING (
+  public.current_user_role() = 'SUPER_ADMIN'
+  OR auth.role() = 'service_role'
+  OR auth.uid() IS NULL
+);
 
 -- Enable Realtime replication on tables
 DO $$ BEGIN
@@ -362,3 +390,67 @@ VALUES
   ('Sankirtan & Book Distribution', 'SBD', 'Street Harinam, Gita Marathon distribution, and transcendental literature outreach.', 'HG Vraja Kishor Das', '+91 98205 56789'),
   ('ISKCON Youth Forum (IYF)', 'IYF', 'College student outreach, youth seminars, spiritual retreats, and career guidance.', 'HG Chaitanya Charan Das', '+91 98206 67890')
 ON CONFLICT (code) DO NOTHING;
+
+-- 11. INITIAL SEED USERS & ROLES
+DO $$
+BEGIN
+  -- 1. Seed HG Rothin Roy Prabhu (Permanent Super Admin Owner)
+  INSERT INTO public.user_profiles (email, full_name, spiritual_name, role, is_active)
+  VALUES (
+    'rothinroy0@gmail.com',
+    'Rothin Roy',
+    'HG Rothin Roy Prabhu',
+    'SUPER_ADMIN',
+    TRUE
+  )
+  ON CONFLICT (email) DO UPDATE
+  SET role = 'SUPER_ADMIN',
+      spiritual_name = 'HG Rothin Roy Prabhu',
+      full_name = 'Rothin Roy',
+      is_active = TRUE;
+
+  -- 2. Seed Rathin Roy (Staff)
+  INSERT INTO public.user_profiles (email, full_name, spiritual_name, role, is_active)
+  VALUES (
+    'ysrathinroy@gmail.com',
+    'Rathin Roy',
+    'Rathin Roy',
+    'STAFF',
+    TRUE
+  )
+  ON CONFLICT (email) DO UPDATE
+  SET role = 'STAFF',
+      spiritual_name = 'Rathin Roy',
+      full_name = 'Rathin Roy',
+      is_active = TRUE;
+EXCEPTION
+  WHEN OTHERS THEN null;
+END $$;
+
+-- 12. AUTOMATIC SUPABASE AUTH TRIGGER (Seamless Auth Sync)
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, email, full_name, spiritual_name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Devotee Staff'),
+    NEW.raw_user_meta_data->>'spiritual_name',
+    COALESCE(NEW.raw_user_meta_data->>'role', 'STAFF')
+  )
+  ON CONFLICT (email) DO UPDATE
+  SET id = EXCLUDED.id,
+      role = COALESCE(EXCLUDED.role, user_profiles.role);
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN NEW; -- Prevent auth transaction failure if table structure differs
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+

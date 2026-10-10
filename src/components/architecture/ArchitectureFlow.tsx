@@ -205,15 +205,56 @@ FOR EACH ROW EXECUTE FUNCTION public.fn_audit_devotees_trigger();
 -- 6. ROW LEVEL SECURITY (RLS) POLICIES
 ALTER TABLE public.devotees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow authenticated read devotees" ON public.devotees FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow authorized staff insert devotees" ON public.devotees FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Allow authorized staff update devotees" ON public.devotees FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "Only admins can delete devotees" ON public.devotees FOR DELETE TO authenticated USING (true);
+CREATE POLICY "Only admins can delete devotees" ON public.devotees FOR DELETE TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE user_profiles.id = auth.uid() 
+    AND user_profiles.role IN ('SUPER_ADMIN', 'ADMIN')
+  )
+);
 
 CREATE POLICY "Admins can view audit logs" ON public.audit_logs FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Allow trigger insert audit logs" ON public.audit_logs FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "Audit logs immutable" ON public.audit_logs FOR UPDATE TO authenticated USING (false);`;
+CREATE POLICY "Audit logs immutable" ON public.audit_logs FOR UPDATE TO authenticated USING (false);
+CREATE POLICY "Audit logs no delete" ON public.audit_logs FOR DELETE TO authenticated USING (false);
+
+-- 7. INITIAL SEED USERS (Super Admin & Staff)
+INSERT INTO public.user_profiles (email, full_name, spiritual_name, role, is_active)
+VALUES 
+  ('rothinroy0@gmail.com', 'Rothin Roy', 'HG Rothin Roy Prabhu', 'SUPER_ADMIN', TRUE),
+  ('ysrathinroy@gmail.com', 'Rathin Roy', 'Rathin Roy', 'STAFF', TRUE)
+ON CONFLICT (email) DO UPDATE 
+SET role = EXCLUDED.role, spiritual_name = EXCLUDED.spiritual_name;
+
+-- 8. AUTOMATIC SUPABASE AUTH TRIGGER
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, email, full_name, spiritual_name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', 'Devotee Staff'),
+    NEW.raw_user_meta_data->>'spiritual_name',
+    COALESCE(NEW.raw_user_meta_data->>'role', 'STAFF')
+  )
+  ON CONFLICT (email) DO UPDATE
+  SET id = EXCLUDED.id, role = COALESCE(EXCLUDED.role, user_profiles.role);
+  RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();`;
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(sqlCode);

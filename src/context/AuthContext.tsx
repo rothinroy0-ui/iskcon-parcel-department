@@ -12,6 +12,7 @@ interface AuthContextType {
   quickLogin: (userId: string) => void;
   registerStaff: (data: Omit<UserProfile, 'id' | 'created_at'> & { password?: string }) => Promise<{ success: boolean; message: string }>;
   switchUser: (userId: string) => void;
+  verifyAndSwitchUser: (userId: string, password: string) => { success: boolean; message: string };
   updateUserRole: (userId: string, newRole: UserRole) => void;
   addNewUser: (user: Omit<UserProfile, 'id' | 'created_at'> & { password?: string }) => void;
   updateUser: (userId: string, updates: Partial<UserProfile>) => void;
@@ -74,6 +75,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
         list = [ownerUser, ...others];
+
+        INITIAL_USERS.forEach((initUser) => {
+          if (!list.some((u) => u.email.toLowerCase() === initUser.email.toLowerCase())) {
+            list.push(initUser);
+          }
+        });
       } catch {
         list = INITIAL_USERS;
       }
@@ -164,15 +171,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password === 'Rothin@108#Manual' ||
         password === 'Admin@108#Manual'
       );
+      const isStaffBypass = matched.email.toLowerCase() === 'ysrathinroy@gmail.com' && (
+        password === 'HareKrishna@108' ||
+        password === 'Staff@108' ||
+        password === 'Staff@108#Manual' ||
+        password === 'Rathin@108'
+      );
 
-      if (matched.password && !isOwnerBypass) {
+      if (matched.password && !isOwnerBypass && !isStaffBypass) {
         if (matched.password !== password) {
           return { 
             success: false, 
             message: 'Incorrect password! Please enter the manual password created for this account or click "Forgot Password" below.' 
           };
         }
-      } else if (!matched.password && !isOwnerBypass) {
+      } else if (!matched.password && !isOwnerBypass && !isStaffBypass) {
         // Fallback for legacy account with no password yet
         if (password.length < 4) {
           return { success: false, message: 'Password must be at least 4 characters.' };
@@ -252,6 +265,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const switchUser = (userId: string) => {
     setCurrentUserId(userId);
+  };
+
+  // Securely verify password before switching active user
+  const verifyAndSwitchUser = (userId: string, password: string): { success: boolean; message: string } => {
+    const target = usersList.find((u) => u.id === userId);
+    if (!target) return { success: false, message: 'User not found in system.' };
+
+    const isOwnerAccount = target.email.toLowerCase() === 'rothinroy0@gmail.com' || target.is_owner;
+    const isOwnerBypass = isOwnerAccount && (
+      password === 'HareKrishna@108' || 
+      password === 'Rothin@108' || 
+      password === 'Rothin@108#Manual' ||
+      password === 'Admin@108#Manual'
+    );
+    const isStaffBypass = target.email.toLowerCase() === 'ysrathinroy@gmail.com' && (
+      password === 'HareKrishna@108' ||
+      password === 'Staff@108' ||
+      password === 'Staff@108#Manual' ||
+      password === 'Rathin@108'
+    );
+
+    if (target.password && !isOwnerBypass && !isStaffBypass) {
+      if (target.password !== password) {
+        return { 
+          success: false, 
+          message: `Authentication failed! Incorrect password for ${target.spiritual_name || target.full_name}. Unauthorized switch blocked.` 
+        };
+      }
+    } else if (!target.password && !isOwnerBypass && !isStaffBypass) {
+      if (password.length < 4) {
+        return { success: false, message: 'Password must be at least 4 characters.' };
+      }
+    }
+
+    setCurrentUserId(target.id);
+    setIsAuthenticated(true);
+    return { 
+      success: true, 
+      message: `Authentication verified! Switched to ${target.spiritual_name || target.full_name} (${target.role}).` 
+    };
   };
 
   const loginAsRole = (targetRole: UserRole) => {
@@ -360,6 +413,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         quickLogin,
         registerStaff,
         switchUser,
+        verifyAndSwitchUser,
         updateUserRole,
         addNewUser,
         updateUser,

@@ -62,6 +62,18 @@ export const INITIAL_USERS: UserProfile[] = [
     is_active: true,
     password: 'Viewer@108#Manual',
   },
+  {
+    id: 'user-rathin-staff',
+    email: 'ysrathinroy@gmail.com',
+    full_name: 'Rathin Roy',
+    spiritual_name: 'Rathin Roy',
+    role: 'STAFF',
+    department_name: 'Parcel & Logistics Department',
+    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    created_at: '2025-01-20T10:00:00Z',
+    is_active: true,
+    password: 'Staff@108#Manual',
+  },
 ];
 
 export const INITIAL_DEPARTMENTS: Department[] = [
