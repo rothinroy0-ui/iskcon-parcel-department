@@ -90,11 +90,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return 'user-owner'; // Default: Rothin Roy (Permanent System Owner)
   });
 
-  // Track whether staff/admin is currently authenticated
+  // Track whether staff/admin is currently authenticated (strictly false for shared URLs and new visitors)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     const saved = localStorage.getItem('iskcon_auth_session');
-    // Default to true if user was already in session, or false if explicitly logged out
-    return saved !== 'false';
+    // Strictly require true: unauthenticated visitors / shared links will always see the Login Portal
+    return saved === 'true';
   });
 
   useEffect(() => {
