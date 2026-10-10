@@ -179,6 +179,33 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-amber-200/60 shadow-xs">
+      {/* Role Testing Notice Banner (Shown when operating in Staff or non-Super Admin role) */}
+      {(currentUser.role !== 'SUPER_ADMIN' || !currentUser.is_owner) && (
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white px-4 py-2 border-b border-indigo-400/30 flex flex-wrap items-center justify-between text-xs gap-2">
+          <div className="flex items-center space-x-2">
+            <span className="font-bold text-amber-300 flex items-center space-x-1">
+              <span>🎭 Role Testing Mode Active:</span>
+            </span>
+            <RoleBadge role={currentUser.role} size="sm" />
+            <span className="text-slate-300">
+              Operating as <strong className="text-white">{currentUser.spiritual_name || currentUser.full_name}</strong> ({currentUser.email})
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-[11px] text-indigo-200 hidden md:inline">
+              Testing UI & permissions
+            </span>
+            <button
+              type="button"
+              onClick={() => switchUser('user-owner')}
+              className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black rounded-lg text-xs shadow-xs transition-all active:scale-95 flex items-center space-x-1 cursor-pointer"
+            >
+              <span>👑 Return to Super Admin</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Top Bar: Brand, Live Supabase Status, Actions & User */}
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
@@ -266,12 +293,42 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <span>Switch Account / Role</span>
                     </span>
                     <span className="text-[9px] bg-amber-200/80 text-amber-900 font-bold px-1.5 py-0.5 rounded">
-                      Password Guarded
+                      Role Testing
                     </span>
                   </div>
                   <p className="text-[11px] text-amber-700 mt-0.5">
                     Test how Supabase RLS enforces permissions across roles:
                   </p>
+
+                  {/* 1-Click Test Role Buttons */}
+                  <div className="grid grid-cols-2 gap-1.5 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => { switchUser('user-owner'); setShowUserDropdown(false); }}
+                      className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center space-x-1 transition-all ${
+                        currentUser.role === 'SUPER_ADMIN'
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                          : 'bg-white hover:bg-purple-50 text-purple-800 border-purple-200'
+                      }`}
+                    >
+                      <span>👑 Super Admin</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { 
+                        const staff = usersList.find((u) => u.email.toLowerCase() === 'ysrathinroy@gmail.com') || usersList.find((u) => u.role === 'STAFF');
+                        if (staff) switchUser(staff.id);
+                        setShowUserDropdown(false); 
+                      }}
+                      className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center space-x-1 transition-all ${
+                        currentUser.role === 'STAFF'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white hover:bg-blue-50 text-blue-800 border-blue-200'
+                      }`}
+                    >
+                      <span>🛡️ Staff Mode</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="max-h-60 overflow-y-auto py-1">
@@ -283,10 +340,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         type="button"
                         onClick={() => {
                           if (!isCurrent) {
-                            setSwitchTargetUser(user);
-                            setSwitchPassword('');
-                            setSwitchError('');
-                            setSwitchSuccess('');
+                            switchUser(user.id);
                             setShowUserDropdown(false);
                           }
                         }}
@@ -313,13 +367,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                         <div className="flex items-center space-x-1.5 shrink-0 ml-2">
                           <RoleBadge role={user.role} size="sm" showIcon={false} />
-                          {isCurrent ? (
+                          {isCurrent && (
                             <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1 py-0.5 rounded">
                               Active
-                            </span>
-                          ) : (
-                            <span title="Password verification required">
-                              <Lock className="w-3 h-3 text-slate-400" />
                             </span>
                           )}
                         </div>

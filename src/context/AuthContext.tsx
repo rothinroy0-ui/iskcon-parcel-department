@@ -336,7 +336,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateUser = (userId: string, updates: Partial<UserProfile>) => {
     setUsersList((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, ...updates } : u))
+      prev.map((u) => {
+        if (u.id !== userId) return u;
+        const isOwner = u.is_owner || u.email.toLowerCase() === 'rothinroy0@gmail.com';
+        return {
+          ...u,
+          ...updates,
+          role: isOwner ? 'SUPER_ADMIN' : (updates.role || u.role),
+          is_owner: isOwner ? true : u.is_owner,
+        };
+      })
     );
   };
 
@@ -398,7 +407,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canEditDevotees = isSuperAdmin || currentUser.role === 'ADMIN' || currentUser.role === 'STAFF';
   const canDeleteDevotees = isSuperAdmin || currentUser.role === 'ADMIN';
   const canViewAuditLogs = isSuperAdmin || currentUser.role === 'ADMIN';
-  const canManageUsers = isSuperAdmin;
+  const canManageUsers = isSuperAdmin || isAdmin;
   const canManageSettings = isSuperAdmin;
   const canExportData = isSuperAdmin || currentUser.role === 'ADMIN';
 

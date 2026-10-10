@@ -10,7 +10,8 @@ interface RoleBadgeProps {
 
 export const RoleBadge: React.FC<RoleBadgeProps> = ({ role, showIcon = true, size = 'md' }) => {
   const getBadgeStyle = () => {
-    switch (role) {
+    const normalized = String(role || 'STAFF').toUpperCase().replace(/\s+/g, '_');
+    switch (normalized) {
       case 'SUPER_ADMIN':
         return {
           bg: 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800',
@@ -38,6 +39,13 @@ export const RoleBadge: React.FC<RoleBadgeProps> = ({ role, showIcon = true, siz
           icon: <Eye className="w-3.5 h-3.5 mr-1 text-slate-500" />,
           label: 'Viewer',
           desc: 'Read-only access',
+        };
+      default:
+        return {
+          bg: 'bg-blue-100 text-blue-800 border-blue-300',
+          icon: <UserCheck className="w-3.5 h-3.5 mr-1 text-blue-600" />,
+          label: String(role || 'Staff'),
+          desc: 'Devotee Staff access',
         };
     }
   };
