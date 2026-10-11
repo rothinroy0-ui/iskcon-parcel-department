@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider, useData } from './context/DataContext';
 import { Navbar, TabKey } from './components/layout/Navbar';
@@ -18,9 +18,20 @@ import { Devotee } from './types';
 import { getCelebrations } from './utils/dateUtils';
 
 const MainPortal: React.FC = () => {
+  const { isSuperAdmin } = useAuth();
   const [currentTab, setCurrentTab] = useState<TabKey>('dashboard');
   const { devotees, auditLogs, parcelDispatches, birthdayRemovals, anniversaryRemovals } = useData();
   const removalsCount = birthdayRemovals.length + anniversaryRemovals.length;
+
+  // Strict Panel Routing: Staff cannot access Admin tabs
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      const adminOnlyTabs: TabKey[] = ['removals', 'audit', 'users', 'architecture'];
+      if (adminOnlyTabs.includes(currentTab)) {
+        setCurrentTab('dashboard');
+      }
+    }
+  }, [isSuperAdmin, currentTab]);
 
   // Modals state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -100,19 +111,19 @@ const MainPortal: React.FC = () => {
             <ParcelManager />
           )}
 
-          {currentTab === 'removals' && (
+          {currentTab === 'removals' && isSuperAdmin && (
             <RemovalRecords />
           )}
 
-          {currentTab === 'audit' && (
+          {currentTab === 'audit' && isSuperAdmin && (
             <AuditLogViewer />
           )}
 
-          {currentTab === 'users' && (
+          {currentTab === 'users' && isSuperAdmin && (
             <UserManager />
           )}
 
-          {currentTab === 'architecture' && (
+          {currentTab === 'architecture' && isSuperAdmin && (
             <ArchitectureFlow />
           )}
         </main>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useData } from '../../context/DataContext';
-import { UserRole } from '../../types';
+import { UserRole, UserProfile } from '../../types';
 import confetti from 'canvas-confetti';
 import { 
   Lock, 
@@ -30,11 +30,8 @@ import {
 import { DevoteeAvatar } from '../common/DevoteeAvatar';
 
 export const LoginPortal: React.FC = () => {
-  const { login, registerStaff, quickLogin, usersList, resetPassword } = useAuth();
+  const { login, resetPassword, usersList } = useAuth();
   const { isLiveSupabase } = useData();
-
-  // Mode: 'login' | 'register' | 'quick'
-  const [activeTab, setActiveTab] = useState<'login' | 'quick' | 'register'>('login');
 
   // Login Form State
   const [email, setEmail] = useState('rothinroy0@gmail.com');
@@ -69,16 +66,6 @@ export const LoginPortal: React.FC = () => {
     return () => clearInterval(timer);
   }, [resendTimer]);
 
-  // Register Form State with manual password
-  const [regFullName, setRegFullName] = useState('');
-  const [regSpiritualName, setRegSpiritualName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPassword, setRegPassword] = useState('');
-  const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regRole, setRegRole] = useState<UserRole>('STAFF');
-  const [regDepartment, setRegDepartment] = useState('Parcel & Logistics Department');
-
   // Submit Login
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,52 +94,6 @@ export const LoginPortal: React.FC = () => {
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Login failed. Please verify credentials.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Submit Registration with manual password
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    if (!regPassword || regPassword.length < 6) {
-      setErrorMessage('Please create a manual password of at least 6 characters.');
-      return;
-    }
-
-    if (regPassword !== regConfirmPassword) {
-      setErrorMessage('Passwords do not match. Please verify both password fields.');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const result = await registerStaff({
-        email: regEmail.trim(),
-        full_name: regFullName.trim(),
-        spiritual_name: regSpiritualName.trim() || undefined,
-        role: regRole,
-        department_name: regDepartment,
-        is_active: true,
-        password: regPassword.trim(),
-      });
-
-      if (result.success) {
-        setSuccessMessage(result.message);
-        confetti({
-          particleCount: 90,
-          spread: 80,
-          origin: { y: 0.5 },
-        });
-      } else {
-        setErrorMessage(result.message);
-      }
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Registration failed.');
     } finally {
       setIsLoading(false);
     }
@@ -250,15 +191,6 @@ export const LoginPortal: React.FC = () => {
     setTimeout(() => setCopiedOtp(false), 2000);
   };
 
-  // Quick role selection: fills email and requires manual password entry
-  const handleQuickLogin = (userId: string, emailPreset: string) => {
-    setEmail(emailPreset);
-    setPassword('');
-    setActiveTab('login');
-    setErrorMessage('');
-    setSuccessMessage(`Account ${emailPreset} selected. Please enter the manual password to sign in.`);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-amber-950 to-slate-950 flex flex-col justify-center items-center p-4 sm:p-6 text-slate-800 relative overflow-hidden">
       
@@ -288,43 +220,25 @@ export const LoginPortal: React.FC = () => {
         </div>
 
         {/* Main Card */}
-        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-amber-100/50 shadow-2xl p-6 sm:p-8 space-y-6">
+        <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-amber-100/50 shadow-2xl p-6 sm:p-8 space-y-5">
           
-          {/* Top Tabs */}
-          <div className="flex bg-slate-100 p-1 rounded-2xl text-xs font-bold text-slate-600">
-            <button
-              type="button"
-              onClick={() => { setActiveTab('login'); setErrorMessage(''); }}
-              className={`flex-1 py-2 rounded-xl transition-all ${
-                activeTab === 'login' 
-                  ? 'bg-white text-slate-900 shadow-xs' 
-                  : 'hover:text-slate-900'
-              }`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('quick'); setErrorMessage(''); }}
-              className={`flex-1 py-2 rounded-xl transition-all ${
-                activeTab === 'quick' 
-                  ? 'bg-white text-amber-900 shadow-xs' 
-                  : 'hover:text-slate-900'
-              }`}
-            >
-              Quick Roles
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab('register'); setErrorMessage(''); }}
-              className={`flex-1 py-2 rounded-xl transition-all ${
-                activeTab === 'register' 
-                  ? 'bg-white text-slate-900 shadow-xs' 
-                  : 'hover:text-slate-900'
-              }`}
-            >
-              New Staff
-            </button>
+          {/* Card Header */}
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-700">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-900 leading-tight">
+                  Secure Portal Sign In
+                </h2>
+                <p className="text-[10px] text-slate-500">Super Admin & Staff Access</p>
+              </div>
+            </div>
+            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center space-x-1">
+              <ShieldCheck className="w-3 h-3 text-emerald-600 inline" />
+              <span>Protected</span>
+            </span>
           </div>
 
           {/* Feedback Alerts */}
@@ -342,285 +256,95 @@ export const LoginPortal: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 1: SIGN IN */}
-          {activeTab === 'login' && (
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
-                  <label htmlFor="login-email">Admin / Staff Email *</label>
-                  <span className="text-[10px] text-slate-400">Individual Account</span>
-                </div>
-                <div className="relative">
-                  <input
-                    id="login-email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@iskcon.org"
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                  />
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                </div>
+          {/* SIGN IN FORM */}
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
+                <label htmlFor="login-email">Registered Email *</label>
+                <span className="text-[10px] text-slate-400">Individual Account</span>
               </div>
-
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
-                  <label htmlFor="login-password">Password *</label>
-                  <span className="text-[10px] text-emerald-700 font-bold flex items-center space-x-1">
-                    <KeyRound className="w-3 h-3 text-emerald-600 inline" />
-                    <span>Manual Password Required</span>
-                  </span>
-                </div>
-                <div className="relative">
-                  <input
-                    id="login-password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
-                  />
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    defaultChecked
-                    className="w-3.5 h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
-                  />
-                  <span>Remember device</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setResetEmail(email || 'rothinroy0@gmail.com');
-                    setShowResetModal(true);
-                    setResetError('');
-                  }}
-                  className="text-amber-700 hover:text-orange-700 font-bold hover:underline flex items-center space-x-1"
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-amber-600 inline" />
-                  <span>Forgot Password?</span>
-                </button>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-600/20 transition-all flex items-center justify-center space-x-2"
-              >
-                {isLoading ? (
-                  <span>Authenticating...</span>
-                ) : (
-                  <>
-                    <span>Sign In to Portal</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </form>
-          )}
-
-          {/* TAB 2: QUICK ONE-CLICK ROLE ACCESS */}
-          {activeTab === 'quick' && (
-            <div className="space-y-3">
-              <div className="text-center pb-1">
-                <p className="text-xs font-semibold text-slate-700">
-                  Select a staff account to prefill & enter manual password:
-                </p>
-                <p className="text-[11px] text-emerald-700 font-medium flex items-center justify-center space-x-1 mt-0.5">
-                  <KeyRound className="w-3 h-3 text-emerald-600 inline" />
-                  <span>Strict manual password verification active</span>
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                {usersList.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => handleQuickLogin(user.id, user.email)}
-                    className="w-full p-3 rounded-2xl border border-slate-200 hover:border-amber-400 bg-slate-50 hover:bg-amber-50/50 transition-all flex items-center justify-between text-left group"
-                  >
-                    <div className="flex items-center space-x-3 truncate">
-                      <DevoteeAvatar
-                        photoUrl={user.avatar_url}
-                        name={user.spiritual_name || user.full_name}
-                        id={user.id}
-                        size="sm"
-                      />
-                      <div className="truncate">
-                        <div className="text-xs font-black text-slate-900 group-hover:text-amber-900 truncate">
-                          {user.spiritual_name || user.full_name}
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono truncate">
-                          {user.email}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right shrink-0 ml-2">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        user.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-900' :
-                        user.role === 'ADMIN' ? 'bg-blue-100 text-blue-900' :
-                        user.role === 'STAFF' ? 'bg-emerald-100 text-emerald-900' :
-                        'bg-slate-100 text-slate-700'
-                      }`}>
-                        {user.role}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: REGISTER NEW STAFF */}
-          {activeTab === 'register' && (
-            <form onSubmit={handleRegisterSubmit} className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Legal Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={regFullName}
-                    onChange={(e) => setRegFullName(e.target.value)}
-                    placeholder="Sundar Gopal"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:ring-1 focus:ring-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Spiritual Name
-                  </label>
-                  <input
-                    type="text"
-                    value={regSpiritualName}
-                    onChange={(e) => setRegSpiritualName(e.target.value)}
-                    placeholder="HG Sundar Das"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:ring-1 focus:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Individual Staff Email *
-                </label>
+              <div className="relative">
                 <input
+                  id="login-email"
                   type="email"
                   required
-                  value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="staff.name@iskcon.org"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:ring-1 focus:ring-amber-500"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@iskcon.org"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Assigned Role
-                  </label>
-                  <select
-                    value={regRole}
-                    onChange={(e) => setRegRole(e.target.value as UserRole)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-slate-800 font-medium focus:ring-1 focus:ring-amber-500"
-                  >
-                    <option value="ADMIN">ADMIN</option>
-                    <option value="STAFF">STAFF</option>
-                    <option value="VIEWER">VIEWER</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Department
-                  </label>
-                  <input
-                    type="text"
-                    value={regDepartment}
-                    onChange={(e) => setRegDepartment(e.target.value)}
-                    placeholder="Parcel & Logistics Department"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-medium focus:ring-1 focus:ring-amber-500"
-                  />
-                </div>
+            <div>
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mb-1.5">
+                <label htmlFor="login-password">Password *</label>
+                <span className="text-[10px] text-emerald-700 font-bold flex items-center space-x-1">
+                  <KeyRound className="w-3 h-3 text-emerald-600 inline" />
+                  <span>Manual Password</span>
+                </span>
               </div>
-
-              {/* Manual Password Creation Card */}
-              <div className="bg-amber-50/70 p-3 rounded-2xl border border-amber-200/80 space-y-2">
-                <div className="flex items-center space-x-1.5 text-amber-900 font-bold text-xs">
-                  <KeyRound className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Create Manual Password *</span>
-                </div>
-                <p className="text-[11px] text-amber-800 leading-tight">
-                  Manually define this account's password (min 6 characters). No default password will be assigned.
-                </p>
-                <div className="grid grid-cols-2 gap-2 pt-0.5">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1 text-[11px]">
-                      Password *
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showRegPassword ? 'text' : 'password'}
-                        required
-                        minLength={6}
-                        value={regPassword}
-                        onChange={(e) => setRegPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 pr-8 text-slate-800 font-medium focus:ring-1 focus:ring-amber-500 text-xs"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowRegPassword(!showRegPassword)}
-                        className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
-                      >
-                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1 text-[11px]">
-                      Confirm Password *
-                    </label>
-                    <input
-                      type={showRegPassword ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      value={regConfirmPassword}
-                      onChange={(e) => setRegConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-slate-800 font-medium focus:ring-1 focus:ring-amber-500 text-xs"
-                    />
-                  </div>
-                </div>
+              <div className="relative">
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+            </div>
 
+            <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  className="w-3.5 h-3.5 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                />
+                <span>Remember device</span>
+              </label>
               <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-2.5 mt-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold shadow-xs transition-all flex items-center justify-center space-x-1.5"
+                type="button"
+                onClick={() => {
+                  setResetEmail(email || 'rothinroy0@gmail.com');
+                  setShowResetModal(true);
+                  setResetError('');
+                }}
+                className="text-amber-700 hover:text-orange-700 font-bold hover:underline flex items-center space-x-1 cursor-pointer"
               >
-                <span>Create Staff Account & Sign In</span>
+                <KeyRound className="w-3.5 h-3.5 text-amber-600 inline" />
+                <span>Forgot Password?</span>
               </button>
-            </form>
-          )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3 bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-md shadow-orange-600/20 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+            >
+              {isLoading ? (
+                <span>Authenticating...</span>
+              ) : (
+                <>
+                  <span>Sign In to Portal</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
 
           {/* Security & Architecture Indicator */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">

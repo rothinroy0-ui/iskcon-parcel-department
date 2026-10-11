@@ -111,20 +111,23 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
+  const isSuperAdmin = currentUser.role === 'SUPER_ADMIN';
+
+  // Strict panel segregation: Super Admin gets full control; Staff gets clean operational workstation
   const navItems = [
     {
       key: 'dashboard' as TabKey,
-      label: 'Live Dashboard',
+      label: isSuperAdmin ? 'Admin Dashboard' : 'Staff Dashboard',
       icon: LayoutDashboard,
       badge: null,
-      desc: 'Real-time overview & metrics',
+      desc: isSuperAdmin ? 'Overview & system metrics' : 'Daily operational tasks',
     },
     {
       key: 'devotees' as TabKey,
       label: 'Devotee Directory (824)',
       icon: Users,
       badge: null,
-      desc: 'All congregation records',
+      desc: 'Congregation records',
     },
     {
       key: 'celebrations' as TabKey,
@@ -142,71 +145,44 @@ export const Navbar: React.FC<NavbarProps> = ({
       badgeColor: 'bg-amber-500 text-white',
       desc: 'Consignments & logistics hub',
     },
-    {
-      key: 'removals' as TabKey,
-      label: 'Removal Records',
-      icon: ArchiveX,
-      badge: removalsCount > 0 ? String(removalsCount) : null,
-      badgeColor: 'bg-rose-500 text-white',
-      desc: 'Soft-removed records — restore anytime',
-    },
-    {
-      key: 'audit' as TabKey,
-      label: 'Audit Trail Logs',
-      icon: ShieldCheck,
-      badge: auditCount > 0 ? String(auditCount) : null,
-      badgeColor: 'bg-purple-600 text-white',
-      locked: !canViewAuditLogs,
-      desc: 'Live RLS change records',
-    },
-    {
-      key: 'users' as TabKey,
-      label: 'Staff & Roles',
-      icon: UserCog,
-      badge: null,
-      locked: !canManageUsers,
-      desc: 'User accounts & RBAC',
-    },
-    {
-      key: 'architecture' as TabKey,
-      label: 'Architecture & Supabase',
-      icon: Database,
-      badge: 'Flow',
-      badgeColor: 'bg-emerald-600 text-white',
-      desc: 'Step 1-4 pipeline & SQL',
-    },
+    ...(isSuperAdmin ? [
+      {
+        key: 'removals' as TabKey,
+        label: 'Removal Records',
+        icon: ArchiveX,
+        badge: removalsCount > 0 ? String(removalsCount) : null,
+        badgeColor: 'bg-rose-500 text-white',
+        desc: 'Soft-removed records — restore anytime',
+      },
+      {
+        key: 'audit' as TabKey,
+        label: 'Audit Trail Logs',
+        icon: ShieldCheck,
+        badge: auditCount > 0 ? String(auditCount) : null,
+        badgeColor: 'bg-purple-600 text-white',
+        desc: 'Live RLS change records',
+      },
+      {
+        key: 'users' as TabKey,
+        label: 'Staff & Roles',
+        icon: UserCog,
+        badge: null,
+        desc: 'Staff accounts & RBAC management',
+      },
+      {
+        key: 'architecture' as TabKey,
+        label: 'Architecture & Supabase',
+        icon: Database,
+        badge: 'Flow',
+        badgeColor: 'bg-emerald-600 text-white',
+        desc: 'Database schema & security flow',
+      },
+    ] : []),
   ];
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-amber-200/60 shadow-xs">
-      {/* Role Testing Notice Banner (Shown when operating in Staff or non-Super Admin role) */}
-      {(currentUser.role !== 'SUPER_ADMIN' || !currentUser.is_owner) && (
-        <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white px-4 py-2 border-b border-indigo-400/30 flex flex-wrap items-center justify-between text-xs gap-2">
-          <div className="flex items-center space-x-2">
-            <span className="font-bold text-amber-300 flex items-center space-x-1">
-              <span>🎭 Role Testing Mode Active:</span>
-            </span>
-            <RoleBadge role={currentUser.role} size="sm" />
-            <span className="text-slate-300">
-              Operating as <strong className="text-white">{currentUser.spiritual_name || currentUser.full_name}</strong> ({currentUser.email})
-            </span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-[11px] text-indigo-200 hidden md:inline">
-              Testing UI & permissions
-            </span>
-            <button
-              type="button"
-              onClick={() => switchUser('user-owner')}
-              className="px-3 py-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black rounded-lg text-xs shadow-xs transition-all active:scale-95 flex items-center space-x-1 cursor-pointer"
-            >
-              <span>👑 Return to Super Admin</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 1. Top Bar: Brand, Live Supabase Status, Actions & User */}
+      {/* 1. Top Bar: Brand, Role Badge & User Profile */}
       <div className="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
         {/* Brand / Logo */}
@@ -219,32 +195,40 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="text-base font-extrabold text-slate-900 tracking-tight font-serif">
                 ISKCON DEVOTEE CARE
               </span>
-              <span className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] uppercase font-bold bg-amber-100 text-amber-800 rounded border border-amber-200">
-                Parcel Dept
+              <span className={`hidden sm:inline-block px-1.5 py-0.5 text-[10px] uppercase font-bold rounded border ${
+                isSuperAdmin 
+                  ? 'bg-purple-100 text-purple-900 border-purple-200' 
+                  : 'bg-blue-100 text-blue-900 border-blue-200'
+              }`}>
+                {isSuperAdmin ? '👑 Super Admin Panel' : '🛡️ Staff Panel'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block">
-              Multi-User Database & Pastoral Logistics Portal
+              {isSuperAdmin 
+                ? 'Full Administration & Security Hub' 
+                : 'Pastoral Care & Parcel Logistics Workstation'}
             </p>
           </div>
         </div>
 
-        {/* Center / Database Status & Pipeline pill */}
-        <div className="hidden md:flex items-center space-x-2">
-          <button
-            onClick={onOpenSupabaseModal}
-            className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-              isLiveSupabase 
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-xs'
-                : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-            }`}
-            title="Click to Connect with Live Supabase Database"
-          >
-            <Server className={`w-3.5 h-3.5 ${isLiveSupabase ? 'text-emerald-600' : 'text-amber-600'}`} />
-            <span>{isLiveSupabase ? 'Supabase PostgreSQL: LIVE' : 'Supabase: Connect Data'}</span>
-            <span className={`w-2 h-2 rounded-full ${isLiveSupabase ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
-          </button>
-        </div>
+        {/* Center / Database Status (Visible to Super Admin) */}
+        {isSuperAdmin && (
+          <div className="hidden md:flex items-center space-x-2">
+            <button
+              onClick={onOpenSupabaseModal}
+              className={`flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                isLiveSupabase 
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-xs'
+                  : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+              }`}
+              title="Click to Connect with Live Supabase Database"
+            >
+              <Server className={`w-3.5 h-3.5 ${isLiveSupabase ? 'text-emerald-600' : 'text-amber-600'}`} />
+              <span>{isLiveSupabase ? 'Supabase PostgreSQL: LIVE' : 'Supabase: Connect Data'}</span>
+              <span className={`w-2 h-2 rounded-full ${isLiveSupabase ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></span>
+            </button>
+          </div>
+        )}
 
         {/* Right side controls */}
         <div className="flex items-center space-x-3">
@@ -415,30 +399,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentTab === item.key;
-            const isLocked = item.locked;
 
             return (
               <button
                 key={item.key}
-                onClick={() => {
-                  if (!isLocked) onSelectTab(item.key);
-                }}
-                disabled={isLocked}
-                title={isLocked ? 'Access restricted by Row Level Security (Admin only)' : item.desc}
+                onClick={() => onSelectTab(item.key)}
+                title={item.desc}
                 className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all group ${
                   isActive
                     ? 'bg-amber-500 text-white shadow-xs font-bold'
-                    : isLocked
-                    ? 'text-slate-300 cursor-not-allowed opacity-60'
                     : 'text-slate-600 hover:bg-white hover:text-slate-900 hover:shadow-2xs'
                 }`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : isLocked ? 'text-slate-300' : 'text-slate-500 group-hover:text-amber-600'}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-amber-600'}`} />
                 <span className="whitespace-nowrap">{item.label}</span>
 
-                {isLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0 ml-1" />}
-
-                {item.badge && !isLocked && (
+                {item.badge && (
                   <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full shrink-0 ${
                     isActive ? 'bg-white/25 text-white' : item.badgeColor
                   }`}>
