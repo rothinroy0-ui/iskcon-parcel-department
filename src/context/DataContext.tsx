@@ -24,16 +24,16 @@ import masterDevotees from '../data/allDevotees.json';
 
 // Helper to normalize Supabase row (supporting both custom columns and standard schema)
 export const normalizeDevoteeRow = (row: any): Devotee => {
-  const spiritual = (row['INITIATED NAME'] || row.spiritual_name || '').trim();
-  const legal = (row['NAME'] || row.legal_name || 'Devotee').trim();
-  const phone = (row['CONTACT NO'] || row.phone || '').trim();
+  const spiritual = String(row['INITIATED NAME'] || row.spiritual_name || '').trim();
+  const legal = String(row['NAME'] || row.legal_name || 'Devotee').trim();
+  const phone = String(row['CONTACT NO'] ?? row.phone ?? '').trim();
   const dob = parseRawDate(row.BIRTHDAY || row.date_of_birth);
   const anniv = parseRawDate(row.ANNIVERSARY || row.marriage_anniversary);
-  const address = (row.ADDRESS || row.address || '').trim();
-  const city = (row.CITY || row.city || '').trim();
-  const state = (row.STATE || row.state || '').trim();
-  const pincode = String(row['PIN CODE'] || row.pincode || '').trim();
-  const spouse = (row['SPOUSE NAME'] || row.spouse_name || '').trim();
+  const address = String(row.ADDRESS || row.address || '').trim();
+  const city = String(row.CITY || row.city || '').trim();
+  const state = String(row.STATE || row.state || '').trim();
+  const pincode = String(row['PIN CODE'] ?? row.pincode ?? '').trim();
+  const spouse = String(row['SPOUSE NAME'] || row.spouse_name || '').trim();
   const id = String(row['DEVOTEE ID'] || row.id || `dev-${row['SL NO'] || Date.now()}`);
   const rawPhoto = row.PHOTO || row.photo_url || '';
   const photo = getDirectPhotoUrl(rawPhoto, spiritual || legal, id);
