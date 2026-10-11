@@ -290,45 +290,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 flex items-center space-x-1">
                       <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-                      <span>Switch Account / Role</span>
+                      <span>Authenticated Account</span>
                     </span>
-                    <span className="text-[9px] bg-amber-200/80 text-amber-900 font-bold px-1.5 py-0.5 rounded">
-                      Role Testing
+                    <span className="text-[9px] bg-purple-100 text-purple-900 font-bold px-1.5 py-0.5 rounded border border-purple-200">
+                      👑 Super Admin
                     </span>
                   </div>
-                  <p className="text-[11px] text-amber-700 mt-0.5">
-                    Test how Supabase RLS enforces permissions across roles:
+                  <p className="text-[11px] text-amber-800 mt-0.5 font-medium">
+                    {currentUser.spiritual_name || currentUser.full_name} ({currentUser.email})
                   </p>
-
-                  {/* 1-Click Test Role Buttons */}
-                  <div className="grid grid-cols-2 gap-1.5 mt-2">
-                    <button
-                      type="button"
-                      onClick={() => { switchUser('user-owner'); setShowUserDropdown(false); }}
-                      className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center space-x-1 transition-all ${
-                        currentUser.role === 'SUPER_ADMIN'
-                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                          : 'bg-white hover:bg-purple-50 text-purple-800 border-purple-200'
-                      }`}
-                    >
-                      <span>👑 Super Admin</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { 
-                        const staff = usersList.find((u) => u.email.toLowerCase() === 'ysrathinroy@gmail.com') || usersList.find((u) => u.role === 'STAFF');
-                        if (staff) switchUser(staff.id);
-                        setShowUserDropdown(false); 
-                      }}
-                      className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border flex items-center justify-center space-x-1 transition-all ${
-                        currentUser.role === 'STAFF'
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                          : 'bg-white hover:bg-blue-50 text-blue-800 border-blue-200'
-                      }`}
-                    >
-                      <span>🛡️ Staff Mode</span>
-                    </button>
-                  </div>
                 </div>
 
                 <div className="max-h-60 overflow-y-auto py-1">
@@ -571,8 +541,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span>Manual password protected</span>
                   {switchTargetUser.email.toLowerCase() === 'rothinroy0@gmail.com' ? (
                     <span className="text-amber-700 font-medium">Recovery: Rothin@108 / HareKrishna@108</span>
-                  ) : switchTargetUser.email.toLowerCase() === 'ysrathinroy@gmail.com' ? (
-                    <span className="text-amber-700 font-medium">Recovery: Staff@108 / HareKrishna@108</span>
                   ) : null}
                 </div>
               </div>

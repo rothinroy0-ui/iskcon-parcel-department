@@ -223,11 +223,10 @@ CREATE POLICY "Allow trigger insert audit logs" ON public.audit_logs FOR INSERT 
 CREATE POLICY "Audit logs immutable" ON public.audit_logs FOR UPDATE TO authenticated USING (false);
 CREATE POLICY "Audit logs no delete" ON public.audit_logs FOR DELETE TO authenticated USING (false);
 
--- 7. INITIAL SEED USERS (Super Admin & Staff)
+-- 7. INITIAL SEED USERS (Super Admin)
 INSERT INTO public.user_profiles (email, full_name, spiritual_name, role, is_active)
 VALUES 
-  ('rothinroy0@gmail.com', 'Rothin Roy', 'HG Rothin Roy Prabhu', 'SUPER_ADMIN', TRUE),
-  ('ysrathinroy@gmail.com', 'Rathin Roy', 'Rathin Roy', 'STAFF', TRUE)
+  ('rothinroy0@gmail.com', 'Rathin Roy', 'HG Rothin Roy Prabhu', 'SUPER_ADMIN', TRUE)
 ON CONFLICT (email) DO UPDATE 
 SET role = EXCLUDED.role, spiritual_name = EXCLUDED.spiritual_name;
 

@@ -48,8 +48,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const ownerUser: UserProfile = {
           id: existingOwner?.id || 'user-owner',
           email: 'rothinroy0@gmail.com',
-          full_name: existingOwner?.full_name || 'Rothin Roy',
-          spiritual_name: existingOwner?.spiritual_name || 'HG Rothin Roy Prabhu',
+          full_name: 'Rathin Roy',
+          spiritual_name: 'HG Rothin Roy Prabhu',
           role: 'SUPER_ADMIN',
           department_name: existingOwner?.department_name || 'Devotee Care & Pastoral Welfare',
           avatar_url: existingOwner?.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
@@ -59,28 +59,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           password: existingOwner?.password || 'Rothin@108#Manual',
         };
 
-        const others = parsed
-          .filter((u) => u.email.toLowerCase() !== 'rothinroy0@gmail.com')
-          .map((u) => {
-            const clean = { ...u, is_owner: false };
-            if (!clean.password) {
-              const seed = INITIAL_USERS.find(
-                (s) => s.id === clean.id || s.email.toLowerCase() === clean.email.toLowerCase()
-              );
-              if (seed?.password) {
-                clean.password = seed.password;
-              }
-            }
-            return clean;
-          });
+        // Purge legacy demo users
+        const LEGACY_EMAILS_TO_REMOVE = new Set([
+          'ysrathinroy@gmail.com',
+          'admin@iskcon.org',
+          'radhika.care@iskcon.org',
+          'staff.parcel@iskcon.org',
+          'viewer@iskcon.org',
+        ]);
 
-        list = [ownerUser, ...others];
+        const customUsers = parsed
+          .filter((u) => u.email.toLowerCase() !== 'rothinroy0@gmail.com' && !LEGACY_EMAILS_TO_REMOVE.has(u.email.toLowerCase()))
+          .map((u) => ({ ...u, is_owner: false }));
 
-        INITIAL_USERS.forEach((initUser) => {
-          if (!list.some((u) => u.email.toLowerCase() === initUser.email.toLowerCase())) {
-            list.push(initUser);
-          }
-        });
+        list = [ownerUser, ...customUsers];
       } catch {
         list = INITIAL_USERS;
       }
@@ -89,12 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    const saved = localStorage.getItem('iskcon_active_user_id');
-    // If the saved user was the old default user-001 (Sundar Gopal), migrate to rothinroy0@gmail.com (user-owner)
-    if (saved && saved !== 'user-001') {
-      return saved;
-    }
-    return 'user-owner'; // Default: Rothin Roy (Permanent System Owner)
+    return 'user-owner'; // Default: Super Admin Rathin Roy
   });
 
   // Track whether staff/admin is currently authenticated (strictly false for shared URLs and new visitors)
@@ -171,21 +158,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password === 'Rothin@108#Manual' ||
         password === 'Admin@108#Manual'
       );
-      const isStaffBypass = matched.email.toLowerCase() === 'ysrathinroy@gmail.com' && (
-        password === 'HareKrishna@108' ||
-        password === 'Staff@108' ||
-        password === 'Staff@108#Manual' ||
-        password === 'Rathin@108'
-      );
-
-      if (matched.password && !isOwnerBypass && !isStaffBypass) {
+      if (matched.password && !isOwnerBypass) {
         if (matched.password !== password) {
           return { 
             success: false, 
             message: 'Incorrect password! Please enter the manual password created for this account or click "Forgot Password" below.' 
           };
         }
-      } else if (!matched.password && !isOwnerBypass && !isStaffBypass) {
+      } else if (!matched.password && !isOwnerBypass) {
         // Fallback for legacy account with no password yet
         if (password.length < 4) {
           return { success: false, message: 'Password must be at least 4 characters.' };
@@ -279,21 +259,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       password === 'Rothin@108#Manual' ||
       password === 'Admin@108#Manual'
     );
-    const isStaffBypass = target.email.toLowerCase() === 'ysrathinroy@gmail.com' && (
-      password === 'HareKrishna@108' ||
-      password === 'Staff@108' ||
-      password === 'Staff@108#Manual' ||
-      password === 'Rathin@108'
-    );
-
-    if (target.password && !isOwnerBypass && !isStaffBypass) {
+    if (target.password && !isOwnerBypass) {
       if (target.password !== password) {
         return { 
           success: false, 
           message: `Authentication failed! Incorrect password for ${target.spiritual_name || target.full_name}. Unauthorized switch blocked.` 
         };
       }
-    } else if (!target.password && !isOwnerBypass && !isStaffBypass) {
+    } else if (!target.password && !isOwnerBypass) {
       if (password.length < 4) {
         return { success: false, message: 'Password must be at least 4 characters.' };
       }

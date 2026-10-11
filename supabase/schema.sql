@@ -325,7 +325,7 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER;
 CREATE POLICY "Public read devotees" ON public.devotees FOR SELECT USING (true);
 CREATE POLICY "Public insert devotees" ON public.devotees FOR INSERT WITH CHECK (true);
 CREATE POLICY "Public update devotees" ON public.devotees FOR UPDATE USING (true);
--- Delete policy: ONLY Super Admin & Admin can delete devotees (Staff like ysrathinroy blocked)
+-- Delete policy: ONLY Super Admin & Admin can delete devotees (Staff blocked)
 CREATE POLICY "Admins only delete devotees" ON public.devotees FOR DELETE USING (
   public.current_user_role() IN ('SUPER_ADMIN', 'ADMIN') 
   OR auth.role() = 'service_role'
@@ -399,7 +399,7 @@ BEGIN
   INSERT INTO public.user_profiles (email, full_name, spiritual_name, role, is_active)
   VALUES (
     'rothinroy0@gmail.com',
-    'Rothin Roy',
+    'Rathin Roy',
     'HG Rothin Roy Prabhu',
     'SUPER_ADMIN',
     TRUE
@@ -407,21 +407,6 @@ BEGIN
   ON CONFLICT (email) DO UPDATE
   SET role = 'SUPER_ADMIN',
       spiritual_name = 'HG Rothin Roy Prabhu',
-      full_name = 'Rothin Roy',
-      is_active = TRUE;
-
-  -- 2. Seed Rathin Roy (Staff)
-  INSERT INTO public.user_profiles (email, full_name, spiritual_name, role, is_active)
-  VALUES (
-    'ysrathinroy@gmail.com',
-    'Rathin Roy',
-    'Rathin Roy',
-    'STAFF',
-    TRUE
-  )
-  ON CONFLICT (email) DO UPDATE
-  SET role = 'STAFF',
-      spiritual_name = 'Rathin Roy',
       full_name = 'Rathin Roy',
       is_active = TRUE;
 EXCEPTION
