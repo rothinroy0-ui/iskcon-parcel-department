@@ -5,6 +5,7 @@ import { Devotee, ParcelDispatch } from '../../types';
 import { parseRawDate } from '../../utils/dateUtils';
 import confetti from 'canvas-confetti';
 import { DevoteeAvatar } from '../common/DevoteeAvatar';
+import { DatePickerWithOptions, DateOptionEvent } from '../common/DatePickerWithOptions';
 import { 
   Cake, 
   Package, 
@@ -200,12 +201,30 @@ export const DevoteeBirthdayWishDashboard: React.FC<DevoteeBirthdayWishDashboard
       }
       if (exactDate && exactDate.trim()) {
         const cleanExact = exactDate.trim();
-        const matchesDate = 
-          item.dateKeySlash === cleanExact ||
-          item.dateKeyShort === cleanExact ||
-          (cleanExact.includes('10-10') && item.dayNum === 10 && item.monthNum === 10) ||
-          (cleanExact.startsWith('2026-') && item.parsedDob.endsWith(cleanExact.slice(5)));
-        if (!matchesDate) return false;
+        let targetDay = 0;
+        let targetMonth = 0;
+        const dmyMatch = cleanExact.match(/^(\d{1,2})-(\d{1,2})/);
+        if (dmyMatch) {
+          targetDay = parseInt(dmyMatch[1], 10);
+          targetMonth = parseInt(dmyMatch[2], 10);
+        } else {
+          const ymdMatch = cleanExact.match(/^\d{4}-(\d{1,2})-(\d{1,2})/);
+          if (ymdMatch) {
+            targetMonth = parseInt(ymdMatch[1], 10);
+            targetDay = parseInt(ymdMatch[2], 10);
+          }
+        }
+
+        if (targetDay > 0 && targetMonth > 0) {
+          if (item.dayNum !== targetDay || item.monthNum !== targetMonth) return false;
+        } else {
+          const matchesDate = 
+            item.dateKeySlash === cleanExact ||
+            item.dateKeyShort === cleanExact ||
+            (cleanExact.includes('10-10') && item.dayNum === 10 && item.monthNum === 10) ||
+            (cleanExact.startsWith('2026-') && item.parsedDob.endsWith(cleanExact.slice(5)));
+          if (!matchesDate) return false;
+        }
       }
       if (cityFilter && cityFilter.trim()) {
         const cLower = cityFilter.toLowerCase().trim();
@@ -258,6 +277,7 @@ export const DevoteeBirthdayWishDashboard: React.FC<DevoteeBirthdayWishDashboard
       wifeName: string;
       dateStr: string;
       monthNum: number;
+      dayNum: number;
       yearsCount: number;
       husbandPhone?: string;
       wifePhone?: string;
@@ -286,6 +306,15 @@ export const DevoteeBirthdayWishDashboard: React.FC<DevoteeBirthdayWishDashboard
       const mNum = getMonthFromStr(annivStr);
       const yr = getYearFromStr(annivStr);
       const yearsCount = yr > 0 ? refYear - yr : 0;
+      let dayNum = 0;
+      const parsedAnniv = parseRawDate(annivStr);
+      if (parsedAnniv) {
+        const parts = parsedAnniv.split('-').map(Number);
+        dayNum = parts[2] || 0;
+      } else {
+        const dMatch = annivStr.match(/(\d{1,2})/);
+        if (dMatch) dayNum = parseInt(dMatch[1], 10);
+      }
 
       // Find partner in database
       const partner = devotees.find(
@@ -309,6 +338,7 @@ export const DevoteeBirthdayWishDashboard: React.FC<DevoteeBirthdayWishDashboard
           wifeName: w.legal_name || w.spiritual_name,
           dateStr: annivStr,
           monthNum: mNum,
+          dayNum,
           yearsCount,
           husbandPhone: h.phone,
           wifePhone: w.phone,
@@ -328,6 +358,7 @@ export const DevoteeBirthdayWishDashboard: React.FC<DevoteeBirthdayWishDashboard
           wifeName: d.spouse_name || 'Spouse',
           dateStr: annivStr,
           monthNum: mNum,
+          dayNum,
           yearsCount,
           singlePhone: d.phone,
           singleCity: d.city || 'Durgapur Region',
@@ -351,8 +382,26 @@ export const DevoteeBirthdayWishDashboard: React.FC<DevoteeBirthdayWishDashboard
         if (targetIdx > 0 && item.monthNum !== targetIdx) return false;
       }
       if (exactDate && exactDate.trim()) {
-        const clean = exactDate.toLowerCase().trim();
-        if (!item.dateStr.toLowerCase().includes(clean)) return false;
+        const clean = exactDate.trim();
+        let targetDay = 0;
+        let targetMonth = 0;
+        const dmyMatch = clean.match(/^(\d{1,2})-(\d{1,2})/);
+        if (dmyMatch) {
+          targetDay = parseInt(dmyMatch[1], 10);
+          targetMonth = parseInt(dmyMatch[2], 10);
+        } else {
+          const ymdMatch = clean.match(/^\d{4}-(\d{1,2})-(\d{1,2})/);
+          if (ymdMatch) {
+            targetMonth = parseInt(ymdMatch[1], 10);
+            targetDay = parseInt(ymdMatch[2], 10);
+          }
+        }
+
+        if (targetDay > 0 && targetMonth > 0 && item.dayNum > 0) {
+          if (item.dayNum !== targetDay || item.monthNum !== targetMonth) return false;
+        } else {
+          if (!item.dateStr.toLowerCase().includes(clean.toLowerCase())) return false;
+        }
       }
       if (cityFilter && cityFilter.trim()) {
         const q = cityFilter.toLowerCase().trim();
@@ -379,6 +428,48 @@ export const DevoteeBirthdayWishDashboard: React.FC<DevoteeBirthdayWishDashboard
       ? filteredBirthdays.every((c) => selectedDevoteeIds.includes(c.id))
       : filteredAnniversaryCouples.every((c) => selectedDevoteeIds.includes(c.id))
   );
+
+  // Compute celebration event dates for the date picker options
+  const availableCelebrationDates = useMemo<DateOptionEvent[]>(() => {
+    const countsByDay: Record<string, { count: number; day: number; month: number; type: 'birthday' | 'anniversary' }> = {};
+
+    if (dashboardMode === 'birthday') {
+      parsedBirthdayList.forEach((b) => {
+        if (b.monthNum > 0 && b.dayNum > 0) {
+          const key = `${b.monthNum}-${b.dayNum}`;
+          if (!countsByDay[key]) {
+            countsByDay[key] = { count: 0, day: b.dayNum, month: b.monthNum, type: 'birthday' };
+          }
+          countsByDay[key].count += 1;
+        }
+      });
+    } else {
+      parsedAnniversaryCouples.forEach((a) => {
+        if (a.monthNum > 0 && a.dayNum > 0) {
+          const key = `${a.monthNum}-${a.dayNum}`;
+          if (!countsByDay[key]) {
+            countsByDay[key] = { count: 0, day: a.dayNum, month: a.monthNum, type: 'anniversary' };
+          }
+          countsByDay[key].count += 1;
+        }
+      });
+    }
+
+    return Object.values(countsByDay).map((info) => {
+      const mStr = String(info.month).padStart(2, '0');
+      const dStr = String(info.day).padStart(2, '0');
+      const mName = MONTH_NAMES[info.month] || 'Oct';
+      return {
+        day: info.day,
+        month: info.month,
+        year: 2026,
+        formattedDate: `${dStr}-${mStr}-2026`,
+        label: `${info.day} ${mName} (${info.count})`,
+        count: info.count,
+        type: info.type
+      };
+    });
+  }, [dashboardMode, parsedBirthdayList, parsedAnniversaryCouples]);
 
   const handleToggleSelectAll = () => {
     if (isAllSelected) {
@@ -858,16 +949,14 @@ Hare Krishna Hare Krishna Krishna Krishna Hare Hare, Hare Rama Hare Rama Rama Ra
             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
               🗓️ Date View (Exact Date):
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={exactDate}
-                onChange={(e) => setExactDate(e.target.value)}
-                placeholder={dashboardMode === 'birthday' ? '10-10-2026' : 'dd-mm-yyyy'}
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 pr-7"
-              />
-              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-            </div>
+            <DatePickerWithOptions
+              value={exactDate}
+              onChange={(newVal) => setExactDate(newVal)}
+              currentMonthName={selectedMonth}
+              onMonthSelect={(mName) => setSelectedMonth(mName)}
+              eventDates={availableCelebrationDates}
+              placeholder={dashboardMode === 'birthday' ? 'Pick a date...' : 'Pick anniversary date...'}
+            />
           </div>
 
           {/* City Filter */}
@@ -941,15 +1030,95 @@ Hare Krishna Hare Krishna Krishna Krishna Hare Hare, Hare Rama Hare Rama Rama Ra
 
         </div>
 
-        {/* Clear Filters Link */}
-        <div className="flex justify-end pt-1">
-          <button
-            onClick={handleClearFilters}
-            className="text-xs font-semibold text-rose-500 hover:text-rose-600 flex items-center space-x-1 hover:underline cursor-pointer"
-          >
-            <span>🧹</span>
-            <span>Clear Filters</span>
-          </button>
+        {/* Quick Date Options Pill Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 border-t border-slate-100">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-500 mr-1 flex items-center space-x-1 shrink-0">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Date Options:</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setExactDate('')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                !exactDate
+                  ? 'bg-amber-500 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All Dates ({selectedMonth})
+            </button>
+            <button
+              type="button"
+              onClick={() => setExactDate('10-10-2026')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                exactDate === '10-10-2026'
+                  ? 'bg-amber-500 text-white shadow-2xs'
+                  : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+              }`}
+            >
+              <span>🌟</span>
+              <span>Today (10 Oct)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExactDate('11-10-2026')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                exactDate === '11-10-2026'
+                  ? 'bg-amber-500 text-white shadow-2xs'
+                  : 'bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100'
+              }`}
+            >
+              <span>🌅</span>
+              <span>Tomorrow (11 Oct)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExactDate('12-10-2026')}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                exactDate === '12-10-2026'
+                  ? 'bg-amber-500 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              12 Oct
+            </button>
+
+            {/* Month's Celebration Dates as Quick Options */}
+            {availableCelebrationDates
+              .filter((e) => selectedMonth === 'All Months' || e.month === (MONTH_NAMES.indexOf(selectedMonth) > 0 ? MONTH_NAMES.indexOf(selectedMonth) : 10))
+              .sort((a, b) => a.day - b.day)
+              .slice(0, 6)
+              .map((ev) => (
+                <button
+                  key={ev.formattedDate}
+                  type="button"
+                  onClick={() => setExactDate(ev.formattedDate)}
+                  className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center space-x-1 cursor-pointer ${
+                    exactDate === ev.formattedDate
+                      ? 'bg-amber-500 text-white shadow-2xs'
+                      : 'bg-slate-50 hover:bg-amber-50 border border-slate-200/80 text-slate-700 hover:text-amber-900'
+                  }`}
+                >
+                  <span>{ev.type === 'anniversary' ? '💍' : '🎂'}</span>
+                  <span>{ev.day} {MONTH_NAMES[ev.month].slice(0, 3)}</span>
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] bg-amber-200/70 text-amber-950 font-extrabold ml-0.5">
+                    {ev.count}
+                  </span>
+                </button>
+              ))}
+          </div>
+
+          {/* Clear Filters Link */}
+          <div>
+            <button
+              onClick={handleClearFilters}
+              className="text-xs font-semibold text-rose-500 hover:text-rose-600 flex items-center space-x-1 hover:underline cursor-pointer"
+            >
+              <span>🧹</span>
+              <span>Clear All Filters</span>
+            </button>
+          </div>
         </div>
       </div>
 

@@ -24,6 +24,7 @@ import {
   Phone
 } from 'lucide-react';
 import { DevoteeAvatar } from '../common/DevoteeAvatar';
+import { DatePickerWithOptions, DateOptionEvent } from '../common/DatePickerWithOptions';
 
 export const ParcelManager: React.FC = () => {
   const { 
@@ -76,6 +77,33 @@ export const ParcelManager: React.FC = () => {
     return dupes;
   }, [parcelDispatches]);
 
+  // Event dates for parcel date picker
+  const parcelEventDates = useMemo<DateOptionEvent[]>(() => {
+    const counts: Record<string, { day: number; month: number; count: number }> = {};
+    parcelDispatches.forEach((p) => {
+      if (p.dispatch_date) {
+        const parts = p.dispatch_date.split('-').map(Number);
+        if (parts.length === 3) {
+          const m = parts[1];
+          const d = parts[2];
+          const key = `${m}-${d}`;
+          if (!counts[key]) counts[key] = { day: d, month: m, count: 0 };
+          counts[key].count += 1;
+        }
+      }
+    });
+
+    return Object.values(counts).map((c) => ({
+      day: c.day,
+      month: c.month,
+      year: 2026,
+      formattedDate: `${String(c.day).padStart(2, '0')}-${String(c.month).padStart(2, '0')}-2026`,
+      label: `${c.day} Oct (${c.count} parcels)`,
+      count: c.count,
+      type: 'parcel',
+    }));
+  }, [parcelDispatches]);
+
   // Filtered Consignments
   const filteredConsignments = useMemo(() => {
     return parcelDispatches.filter((p) => {
@@ -90,7 +118,20 @@ export const ParcelManager: React.FC = () => {
       if (dateCreatedFilter && dateCreatedFilter.trim()) {
         const clean = dateCreatedFilter.trim().toLowerCase();
         const pDate = (p.dispatch_date || '').toLowerCase();
-        if (!pDate.includes(clean)) return false;
+        let targetDay = 0;
+        let targetMonth = 0;
+        const dmyMatch = clean.match(/^(\d{1,2})-(\d{1,2})/);
+        if (dmyMatch) {
+          targetDay = parseInt(dmyMatch[1], 10);
+          targetMonth = parseInt(dmyMatch[2], 10);
+        }
+        if (targetDay > 0 && targetMonth > 0) {
+          const expectedIso = `2026-${String(targetMonth).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+          const expectedSlash = `${String(targetDay).padStart(2, '0')}-${String(targetMonth).padStart(2, '0')}`;
+          if (!pDate.includes(expectedIso) && !pDate.includes(expectedSlash)) return false;
+        } else {
+          if (!pDate.includes(clean)) return false;
+        }
       }
 
       // 3. Search Query (Name, Phone, Tracking ID, City)
@@ -434,16 +475,12 @@ export const ParcelManager: React.FC = () => {
             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
               📅 Date Created:
             </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={dateCreatedFilter}
-                onChange={(e) => setDateCreatedFilter(e.target.value)}
-                placeholder="dd-mm-yyyy"
-                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 pr-7"
-              />
-              <Calendar className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-            </div>
+            <DatePickerWithOptions
+              value={dateCreatedFilter}
+              onChange={(val) => setDateCreatedFilter(val)}
+              eventDates={parcelEventDates}
+              placeholder="All Dates / Pick..."
+            />
           </div>
 
           {/* Consignment Search */}
