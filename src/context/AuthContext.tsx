@@ -103,7 +103,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [currentUserId, setCurrentUserId] = useState<string>(() => {
-    return 'user-owner'; // Default: Super Admin Rathin Roy
+    const saved = localStorage.getItem('iskcon_active_user_id');
+    return saved || 'user-owner';
   });
 
   // Track whether staff/admin is currently authenticated (strictly false for shared URLs and new visitors)
@@ -125,6 +126,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('iskcon_auth_session', String(isAuthenticated));
   }, [isAuthenticated]);
 
+  // Helper to query and sync user_profiles by Supabase Auth UID
+  const syncProfileByAuthId = async (authUserId: string, authEmail?: string) => {
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    try {
+      const { data: profile, error } = await client
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authUserId)
+        .maybeSingle();
+
+      if (profile && !error) {
+        const syncedUser: UserProfile = {
+          id: profile.id,
+          email: profile.email || authEmail || '',
+          full_name: profile.full_name || 'Staff Member',
+          spiritual_name: profile.spiritual_name || undefined,
+          role: (profile.role as UserRole) || 'STAFF',
+          department_id: profile.department_id,
+          avatar_url: profile.avatar_url,
+          created_at: profile.created_at || new Date().toISOString(),
+          is_active: profile.is_active ?? true,
+          is_owner: profile.role === 'SUPER_ADMIN' || profile.email?.toLowerCase() === 'rothinroy0@gmail.com',
+        };
+
+        setUsersList((prev) => {
+          const exists = prev.some((u) => u.id === syncedUser.id);
+          return exists ? prev.map((u) => (u.id === syncedUser.id ? syncedUser : u)) : [syncedUser, ...prev];
+        });
+        setCurrentUserId(syncedUser.id);
+        setIsAuthenticated(true);
+        return syncedUser;
+      }
+    } catch (err) {
+      console.warn('Supabase profile query by auth UID error:', err);
+    }
+    return null;
+  };
+
+  // Attach client.auth.onAuthStateChange to listen to Supabase Auth sessions
+  useEffect(() => {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    // Check existing active Supabase session
+    client.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        await syncProfileByAuthId(session.user.id, session.user.email);
+      }
+    });
+
+    // Listen to Supabase auth events
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await syncProfileByAuthId(session.user.id, session.user.email);
+      } else if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('iskcon_auth_session');
+        localStorage.removeItem('iskcon_active_user_id');
+        setIsAuthenticated(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
   const currentUser = usersList.find((u) => u.id === currentUserId) || usersList[0];
 
   // Login handler with Supabase Auth & Local account verification
@@ -141,24 +210,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         if (data?.user && !error) {
-          let matched = usersList.find((u) => u.email.toLowerCase() === trimmedEmail);
-          if (!matched) {
-            matched = {
-              id: data.user.id,
-              email: data.user.email || trimmedEmail,
-              full_name: data.user.user_metadata?.full_name || 'Staff Member',
-              spiritual_name: data.user.user_metadata?.spiritual_name || 'Prabhu',
-              role: (data.user.user_metadata?.role as UserRole) || 'STAFF',
-              department_name: 'Devotee Care',
-              created_at: new Date().toISOString(),
-              is_active: true,
-              password: password,
-            };
-            setUsersList((prev) => [...prev, matched!]);
+          // Query user_profiles table strictly by Supabase Auth UID
+          const synced = await syncProfileByAuthId(data.user.id, data.user.email || trimmedEmail);
+          const finalUser: UserProfile = synced || {
+            id: data.user.id,
+            email: data.user.email || trimmedEmail,
+            full_name: data.user.user_metadata?.full_name || 'Staff Member',
+            spiritual_name: data.user.user_metadata?.spiritual_name || 'Prabhu',
+            role: (data.user.user_metadata?.role as UserRole) || 'STAFF',
+            department_name: 'Devotee Care',
+            created_at: new Date().toISOString(),
+            is_active: true,
+            is_owner: (data.user.user_metadata?.role as UserRole) === 'SUPER_ADMIN' || trimmedEmail === 'rothinroy0@gmail.com',
+          };
+
+          if (!synced) {
+            setUsersList((prev) => {
+              const exists = prev.some((u) => u.id === finalUser.id);
+              return exists ? prev.map((u) => (u.id === finalUser.id ? finalUser : u)) : [finalUser, ...prev];
+            });
+            setCurrentUserId(finalUser.id);
+            setIsAuthenticated(true);
           }
-          setCurrentUserId(matched.id);
-          setIsAuthenticated(true);
-          return { success: true, message: `Welcome back, ${matched.spiritual_name || matched.full_name}!`, user: matched };
+
+          return { 
+            success: true, 
+            message: `Welcome back, ${finalUser.spiritual_name || finalUser.full_name}!`, 
+            user: finalUser 
+          };
         }
       } catch (err) {
         console.warn('Supabase auth attempt:', err);
@@ -231,6 +310,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await client.auth.signOut();
       } catch {}
     }
+    localStorage.removeItem('iskcon_auth_session');
+    localStorage.removeItem('iskcon_active_user_id');
     setIsAuthenticated(false);
   };
 
@@ -275,8 +356,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true, message: `Account registered successfully for ${newUser.spiritual_name || newUser.full_name}!` };
   };
 
+  // Guard against unauthorized ID switching without re-authenticating
   const switchUser = (userId: string) => {
-    setCurrentUserId(userId);
+    if (currentUser.id === userId) return;
+    if (isSuperAdmin) {
+      setCurrentUserId(userId);
+    } else {
+      console.warn('Unauthorized user switch blocked: Re-authentication required.');
+    }
   };
 
   // Securely verify password before switching active user

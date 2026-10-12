@@ -267,115 +267,92 @@ export const Navbar: React.FC<NavbarProps> = ({
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Dropdown Menu (Strictly Current Authenticated User Only) */}
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-2 border-b border-slate-100 bg-amber-50/50">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-900 flex items-center space-x-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-                      <span>Authenticated Account</span>
-                    </span>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
-                      isSuperAdmin 
-                        ? 'bg-purple-100 text-purple-900 border-purple-200' 
-                        : 'bg-blue-100 text-blue-900 border-blue-200'
-                    }`}>
-                      {isSuperAdmin ? '👑 Super Admin' : '🛡️ Staff Member'}
-                    </span>
+              <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-3">
+                {/* Header: Authenticated Account Status */}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center space-x-1">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Active Session</span>
+                  </span>
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                    isSuperAdmin 
+                      ? 'bg-purple-100 text-purple-900 border-purple-200' 
+                      : 'bg-blue-100 text-blue-900 border-blue-200'
+                  }`}>
+                    {isSuperAdmin ? '👑 Super Admin' : '🛡️ Staff'}
+                  </span>
+                </div>
+
+                {/* Currently Authenticated User Profile Card */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-start space-x-3">
+                  <DevoteeAvatar
+                    photoUrl={currentUser.avatar_url}
+                    name={currentUser.spiritual_name || currentUser.full_name}
+                    id={currentUser.id}
+                    size="md"
+                    className="ring-2 ring-amber-400/50 shrink-0 mt-0.5"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-900 truncate">
+                      {currentUser.spiritual_name || currentUser.full_name}
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                      {currentUser.email}
+                    </p>
+                    <div className="flex items-center space-x-1.5 mt-2">
+                      <RoleBadge role={currentUser.role} size="sm" showIcon={false} />
+                      <span className="text-[10px] font-mono text-slate-400 truncate max-w-[120px]" title={currentUser.id}>
+                        ID: {currentUser.id.length > 12 ? `${currentUser.id.slice(0, 8)}...` : currentUser.id}
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-amber-800 mt-0.5 font-medium">
-                    {currentUser.spiritual_name || currentUser.full_name} ({currentUser.email})
-                  </p>
                 </div>
 
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {usersList.map((user) => {
-                    const isCurrent = user.id === currentUser.id;
-                    return (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => {
-                          if (!isCurrent) {
-                            switchUser(user.id);
-                            setShowUserDropdown(false);
-                          }
-                        }}
-                        className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                          isCurrent ? 'bg-amber-50/90 ring-1 ring-amber-300/50' : 'cursor-pointer'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-2.5 truncate">
-                          <DevoteeAvatar
-                            photoUrl={user.avatar_url}
-                            name={user.spiritual_name || user.full_name}
-                            id={user.id}
-                            size="xs"
-                          />
-                          <div className="truncate">
-                            <p className="text-xs font-semibold text-slate-800 truncate flex items-center space-x-1">
-                              <span>{user.spiritual_name || user.full_name}</span>
-                              {(user.is_owner || user.email.toLowerCase() === 'rothinroy0@gmail.com') && (
-                                <span className="text-[10px]" title="Permanent System Owner">👑</span>
-                              )}
-                            </p>
-                            <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-1.5 shrink-0 ml-2">
-                          <RoleBadge role={user.role} size="sm" showIcon={false} />
-                          {isCurrent && (
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1 py-0.5 rounded">
-                              Active
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {currentUser.role === 'SUPER_ADMIN' ? (
-                  <div className="px-3 pt-2 pb-1 border-t border-slate-100 mt-1 flex justify-between items-center text-[11px]">
+                {/* Admin Management Controls (Authorized Administrators ONLY) */}
+                {isSuperAdmin && (
+                  <div className="pt-2 border-t border-slate-100 space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-2 py-0.5">
+                      Admin Controls
+                    </div>
                     <button
                       onClick={() => {
-                        setShowResetConfirm(true);
+                        onSelectTab('users');
                         setShowUserDropdown(false);
                       }}
-                      className="text-slate-500 hover:text-rose-700 flex items-center space-x-1 transition-colors"
-                      title="Reset sample database"
+                      className="w-full px-2.5 py-1.5 text-left rounded-lg hover:bg-purple-50 text-slate-700 hover:text-purple-900 flex items-center justify-between text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Reset Data</span>
+                      <div className="flex items-center space-x-2">
+                        <UserCog className="w-3.5 h-3.5 text-purple-600" />
+                        <span>Staff & Role Governance</span>
+                      </div>
+                      <span className="text-[10px] text-purple-700 bg-purple-100 px-1.5 py-0.2 rounded font-bold">Admin</span>
                     </button>
+
                     <button
                       onClick={() => {
                         onNavigateToArchitecture();
                         setShowUserDropdown(false);
                       }}
-                      className="text-amber-700 hover:text-amber-800 font-semibold"
+                      className="w-full px-2.5 py-1.5 text-left rounded-lg hover:bg-amber-50 text-slate-700 hover:text-amber-900 flex items-center justify-between text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      Setup Supabase →
+                      <div className="flex items-center space-x-2">
+                        <Database className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Database & RLS Policies</span>
+                      </div>
                     </button>
-                  </div>
-                ) : (
-                  <div className="px-3 py-1.5 border-t border-slate-100 mt-1 flex items-center justify-between text-[10px] text-slate-500 bg-slate-50/50">
-                    <span className="flex items-center space-x-1">
-                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      <span>RLS Policy Active</span>
-                    </span>
-                    <span className="font-semibold text-slate-600">Staff Access</span>
                   </div>
                 )}
 
-                <div className="px-3 py-2 border-t border-slate-100 mt-1">
+                {/* Sign Out Action */}
+                <div className="pt-2 border-t border-slate-100">
                   <button
                     onClick={() => {
                       logout();
                       setShowUserDropdown(false);
                     }}
-                    className="w-full py-1.5 px-3 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 flex items-center justify-center space-x-1.5 transition-colors border border-rose-200"
+                    className="w-full py-2 px-3 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 flex items-center justify-center space-x-1.5 transition-colors border border-rose-200 cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>
