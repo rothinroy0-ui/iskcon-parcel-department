@@ -31,7 +31,14 @@ export const DevoteeList: React.FC<DevoteeListProps> = ({
   onEditDevotee,
   onAddNewDevotee,
 }) => {
-  const { devotees, deleteDevotee, exportDevoteesCSV, departments } = useData();
+  const { 
+    devotees, 
+    deleteDevotee, 
+    softDeleteDevotee, 
+    permanentlyDeleteDevotee, 
+    exportDevoteesCSV, 
+    departments 
+  } = useData();
   const { canEditDevotees, canDeleteDevotees, isViewer } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,13 +47,17 @@ export const DevoteeList: React.FC<DevoteeListProps> = ({
   const [cityFilter, setCityFilter] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
+  // Deletion modal state
+  const [devoteeToDelete, setDevoteeToDelete] = useState<Devotee | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Unique cities
   const cities = useMemo(() => {
     const list = Array.from(new Set(devotees.map((d) => d.city).filter(Boolean)));
     return list.sort();
   }, [devotees]);
 
-  // Filtered devotees
+  // Filter devotees
   const filteredDevotees = useMemo(() => {
     return devotees.filter((d) => {
       const matchSearch =
@@ -66,13 +77,29 @@ export const DevoteeList: React.FC<DevoteeListProps> = ({
     });
   }, [devotees, searchQuery, statusFilter, departmentFilter, cityFilter]);
 
-  const handleDelete = async (devotee: Devotee) => {
-    const title = devotee.spiritual_name || devotee.legal_name;
-    if (window.confirm(`Are you sure you want to remove the devotee record for "${title}"? This action will be recorded in the audit trail.`)) {
-      const res = await deleteDevotee(devotee.id);
-      if (!res.success) {
-        alert(res.message);
-      }
+  const handleDelete = (devotee: Devotee) => {
+    setDevoteeToDelete(devotee);
+  };
+
+  const handleConfirmSoftDelete = async () => {
+    if (!devoteeToDelete) return;
+    setIsDeleting(true);
+    const res = await softDeleteDevotee(devoteeToDelete.id);
+    setIsDeleting(false);
+    setDevoteeToDelete(null);
+    if (!res.success) {
+      alert(res.message);
+    }
+  };
+
+  const handleConfirmPermanentDelete = async () => {
+    if (!devoteeToDelete) return;
+    setIsDeleting(true);
+    const res = await permanentlyDeleteDevotee(devoteeToDelete.id);
+    setIsDeleting(false);
+    setDevoteeToDelete(null);
+    if (!res.success) {
+      alert(res.message);
     }
   };
 
@@ -443,10 +470,105 @@ export const DevoteeList: React.FC<DevoteeListProps> = ({
                       Edit
                     </button>
                   )}
+                  {canDeleteDevotees && (
+                    <button
+                      onClick={() => handleDelete(dev)}
+                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg font-semibold text-[11px]"
+                      title="Delete Devotee Record (Admin only)"
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Super Admin Devotee Deletion Governance Modal */}
+      {devoteeToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Delete Devotee Record
+                  </h3>
+                  <p className="text-[11px] text-slate-500">Super Admin Governance Action</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDevoteeToDelete(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200/80 flex items-center space-x-3">
+              <DevoteeAvatar
+                photoUrl={devoteeToDelete.photo_url}
+                name={devoteeToDelete.spiritual_name || devoteeToDelete.legal_name}
+                id={devoteeToDelete.id}
+                size="md"
+              />
+              <div className="truncate">
+                <p className="text-sm font-bold text-slate-900 truncate">
+                  {devoteeToDelete.spiritual_name || devoteeToDelete.legal_name}
+                </p>
+                <p className="text-[11px] text-slate-500 truncate">
+                  Legal: {devoteeToDelete.legal_name} • Phone: {devoteeToDelete.phone || 'N/A'}
+                </p>
+                <p className="text-[10px] font-mono text-slate-400">ID: {devoteeToDelete.id}</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              How would you like to handle this deletion? You can soft-delete to safely move them to <strong>Removal Records</strong> (restorable anytime), or permanently erase the record.
+            </p>
+
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmSoftDelete}
+                className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-between cursor-pointer"
+              >
+                <div className="text-left">
+                  <div className="font-bold flex items-center space-x-1.5">
+                    <span>🗂️ Move to Removal Records (Soft Delete)</span>
+                    <span className="text-[10px] bg-emerald-700/80 px-1.5 py-0.5 rounded text-white font-medium">Safe</span>
+                  </div>
+                  <div className="text-[10px] text-emerald-100 font-normal">Can be restored anytime with 1 click</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmPermanentDelete}
+                className="w-full py-2 px-4 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer"
+              >
+                <div className="text-left">
+                  <div className="font-bold">⚠️ Permanently Erase Record</div>
+                  <div className="text-[10px] text-rose-500 font-normal">Purges record permanently from database</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDevoteeToDelete(null)}
+                className="w-full py-2 text-center text-xs font-semibold text-slate-500 hover:text-slate-800"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

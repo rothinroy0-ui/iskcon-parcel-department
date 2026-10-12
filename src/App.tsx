@@ -20,8 +20,8 @@ import { getCelebrations } from './utils/dateUtils';
 const MainPortal: React.FC = () => {
   const { isSuperAdmin } = useAuth();
   const [currentTab, setCurrentTab] = useState<TabKey>('dashboard');
-  const { devotees, auditLogs, parcelDispatches, birthdayRemovals, anniversaryRemovals } = useData();
-  const removalsCount = birthdayRemovals.length + anniversaryRemovals.length;
+  const { devotees, auditLogs, parcelDispatches, birthdayRemovals, anniversaryRemovals, softDeletedDevotees } = useData();
+  const removalsCount = birthdayRemovals.length + anniversaryRemovals.length + (softDeletedDevotees?.length || 0);
 
   // Strict Panel Routing: Staff cannot access Admin tabs
   useEffect(() => {

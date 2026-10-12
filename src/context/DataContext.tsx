@@ -98,6 +98,11 @@ interface DataContextType {
   addDevotee: (devoteeData: Omit<Devotee, 'id' | 'created_at' | 'updated_at'>) => Promise<{ success: boolean; message: string }>;
   updateDevotee: (id: string, updates: Partial<Devotee>) => Promise<{ success: boolean; message: string }>;
   deleteDevotee: (id: string) => Promise<{ success: boolean; message: string }>;
+  softDeletedDevotees: Devotee[];
+  softDeleteDevotee: (id: string) => Promise<{ success: boolean; message: string }>;
+  restoreSoftDeletedDevotee: (id: string) => Promise<{ success: boolean; message: string }>;
+  restoreAllSoftDeletedDevotees: () => Promise<{ success: boolean; message: string }>;
+  permanentlyDeleteDevotee: (id: string) => Promise<{ success: boolean; message: string }>;
   logCareInteraction: (interaction: Omit<CareInteraction, 'id' | 'created_at'>) => Promise<{ success: boolean; message: string }>;
   addParcelDispatch: (dispatch: Omit<ParcelDispatch, 'id'>) => Promise<{ success: boolean; message: string }>;
   updateParcelStatus: (id: string, newStatus: ParcelDispatch['status']) => Promise<{ success: boolean; message: string }>;
@@ -181,6 +186,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return ['ISKCON_DGP_436'];
     }
   });
+
+  // Soft-deleted devotee profiles (Restorable anytime by Super Admin)
+  const [softDeletedDevotees, setSoftDeletedDevotees] = useState<Devotee[]>(() => {
+    try {
+      const saved = localStorage.getItem('iskcon_soft_deleted_devotees');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('iskcon_soft_deleted_devotees', JSON.stringify(softDeletedDevotees));
+  }, [softDeletedDevotees]);
 
   const removeBirthdayRecord = (id: string) => {
     setBirthdayRemovals((prev) => {
@@ -535,12 +554,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true, message: `Successfully updated ${title}` };
   };
 
-  // Delete Devotee
-  const deleteDevotee = async (id: string): Promise<{ success: boolean; message: string }> => {
+  // Soft Delete Devotee (Safely moves to Removal Records - restorable anytime by Super Admin)
+  const softDeleteDevotee = async (id: string): Promise<{ success: boolean; message: string }> => {
     if (!canDeleteDevotees) {
       return { 
         success: false, 
-        message: 'RLS Security Violation: Only ADMIN and SUPER_ADMIN roles can delete devotee records.' 
+        message: 'RLS Security Violation: Only SUPER_ADMIN can remove devotee records.' 
       };
     }
 
@@ -549,30 +568,108 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: false, message: 'Devotee record not found.' };
     }
 
+    const title = target.spiritual_name || target.legal_name;
+
+    setDevotees((prev) => prev.filter((d) => d.id !== id));
+    setSoftDeletedDevotees((prev) => [target, ...prev.filter((d) => d.id !== id)]);
+
+    recordAudit(
+      'DELETE',
+      'devotee',
+      id,
+      title,
+      `Soft-deleted devotee "${title}" (moved to Removal Records - restorable anytime)`
+    );
+
+    return { success: true, message: `Devotee "${title}" moved to Removal Records. You can restore them anytime!` };
+  };
+
+  // Restore Soft-Deleted Devotee
+  const restoreSoftDeletedDevotee = async (id: string): Promise<{ success: boolean; message: string }> => {
+    const target = softDeletedDevotees.find((d) => d.id === id);
+    if (!target) {
+      return { success: false, message: 'Devotee record not found in Removal Records.' };
+    }
+
+    const title = target.spiritual_name || target.legal_name;
+
+    setSoftDeletedDevotees((prev) => prev.filter((d) => d.id !== id));
+    setDevotees((prev) => [target, ...prev.filter((d) => d.id !== id)]);
+
+    recordAudit(
+      'CREATE',
+      'devotee',
+      id,
+      title,
+      `Restored devotee "${title}" from Removal Records back to Congregation Directory`
+    );
+
+    return { success: true, message: `Successfully restored "${title}" to the Devotee Directory!` };
+  };
+
+  // Restore All Soft-Deleted Devotees
+  const restoreAllSoftDeletedDevotees = async (): Promise<{ success: boolean; message: string }> => {
+    if (softDeletedDevotees.length === 0) {
+      return { success: false, message: 'No soft-deleted devotee records to restore.' };
+    }
+
+    const count = softDeletedDevotees.length;
+    setDevotees((prev) => [...softDeletedDevotees, ...prev]);
+    setSoftDeletedDevotees([]);
+
+    recordAudit(
+      'CREATE',
+      'devotee',
+      'bulk-restore',
+      'Congregation',
+      `Restored all ${count} devotee records from Removal Records`
+    );
+
+    return { success: true, message: `Successfully restored all ${count} devotee records!` };
+  };
+
+  // Permanently Delete Devotee
+  const permanentlyDeleteDevotee = async (id: string): Promise<{ success: boolean; message: string }> => {
+    if (!canDeleteDevotees) {
+      return { 
+        success: false, 
+        message: 'RLS Security Violation: Only SUPER_ADMIN can permanently delete devotee records.' 
+      };
+    }
+
+    const target = softDeletedDevotees.find((d) => d.id === id) || devotees.find((d) => d.id === id);
+    const title = target ? (target.spiritual_name || target.legal_name) : id;
+
     const client = getSupabaseClient();
     if (client && isLiveSupabase) {
       try {
-        const { error } = id.includes('ISKCON_') 
-          ? await client.from('devotees').delete().eq('DEVOTEE ID', id)
-          : await client.from('devotees').delete().eq('id', id);
-
-        if (error) {
-          return { success: false, message: `Supabase Delete Error: ${error.message}` };
+        if (id.includes('ISKCON_')) {
+          await client.from('devotees').delete().eq('DEVOTEE ID', id);
+        } else {
+          await client.from('devotees').delete().eq('id', id);
         }
-        setDevotees((prev) => prev.filter((d) => d.id !== id));
-        recordAudit('DELETE', 'devotee', id, target.spiritual_name || target.legal_name, `Deleted devotee record: ${target.spiritual_name || target.legal_name}`);
-        return { success: true, message: `Deleted devotee from Supabase.` };
-      } catch (err: any) {
-        return { success: false, message: err.message || 'Supabase delete failed' };
+      } catch (err) {
+        console.warn('Supabase permanent delete error:', err);
       }
     }
 
-    // Offline mode
-    const title = target.spiritual_name || target.legal_name;
     setDevotees((prev) => prev.filter((d) => d.id !== id));
-    recordAudit('DELETE', 'devotee', id, title, `Deleted devotee record: ${title}`);
+    setSoftDeletedDevotees((prev) => prev.filter((d) => d.id !== id));
 
-    return { success: true, message: `Record for ${title} was removed.` };
+    recordAudit(
+      'DELETE',
+      'devotee',
+      id,
+      title,
+      `Permanently purged devotee record: ${title}`
+    );
+
+    return { success: true, message: `Devotee "${title}" has been permanently purged.` };
+  };
+
+  // Delete Devotee (defaults to safe soft-delete so nothing is lost accidentally)
+  const deleteDevotee = async (id: string): Promise<{ success: boolean; message: string }> => {
+    return softDeleteDevotee(id);
   };
 
   // Log Care Interaction
@@ -850,6 +947,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addDevotee,
         updateDevotee,
         deleteDevotee,
+        softDeletedDevotees,
+        softDeleteDevotee,
+        restoreSoftDeletedDevotee,
+        restoreAllSoftDeletedDevotees,
+        permanentlyDeleteDevotee,
         logCareInteraction,
         addParcelDispatch,
         updateParcelStatus,

@@ -256,6 +256,82 @@ export const LoginPortal: React.FC = () => {
             </div>
           )}
 
+          {/* Portal Selector Cards */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1">
+                <span>Choose Portal Mode</span>
+              </label>
+              <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                1-Click Quick Select
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Admin Portal Card */}
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('rothinroy0@gmail.com');
+                  setPassword('Rothin@108#Manual');
+                  setErrorMessage('');
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                  email.toLowerCase() === 'rothinroy0@gmail.com'
+                    ? 'bg-purple-50/90 border-purple-300 ring-2 ring-purple-500/30 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-base">👑</span>
+                    <span className="text-xs font-bold text-slate-900">Admin Portal</span>
+                  </div>
+                  {email.toLowerCase() === 'rothinroy0@gmail.com' && (
+                    <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+                  )}
+                </div>
+                <p className="text-[11px] font-bold text-purple-900 mt-1 truncate">
+                  HG Rathin Roy Prabhu
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                  Super Admin • Deletions & Audit Hub
+                </p>
+              </button>
+
+              {/* Staff Portal Card */}
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail('staff@iskcon.org');
+                  setPassword('Staff@108#Manual');
+                  setErrorMessage('');
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer relative ${
+                  email.toLowerCase() === 'staff@iskcon.org'
+                    ? 'bg-blue-50/90 border-blue-300 ring-2 ring-blue-500/30 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100 border-slate-200'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-base">🛡️</span>
+                    <span className="text-xs font-bold text-slate-900">Staff Portal</span>
+                  </div>
+                  {email.toLowerCase() === 'staff@iskcon.org' && (
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                  )}
+                </div>
+                <p className="text-[11px] font-bold text-blue-900 mt-1 truncate">
+                  Bhakta Amit
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+                  Pastoral Care & Parcel Team (Safe)
+                </p>
+              </button>
+            </div>
+          </div>
+
           {/* SIGN IN FORM */}
           <form onSubmit={handleLoginSubmit} className="space-y-4">
             <div>

@@ -14,6 +14,19 @@ export const INITIAL_USERS: UserProfile[] = [
     is_owner: true,
     password: 'Rothin@108#Manual',
   },
+  {
+    id: 'user-staff',
+    email: 'staff@iskcon.org',
+    full_name: 'Bhakta Amit',
+    spiritual_name: 'Bhakta Amit Kumar',
+    role: 'STAFF',
+    department_name: 'Parcel & Logistics Department',
+    avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    created_at: '2025-01-01T00:00:00Z',
+    is_active: true,
+    is_owner: false,
+    password: 'Staff@108#Manual',
+  },
 ];
 
 export const INITIAL_DEPARTMENTS: Department[] = [

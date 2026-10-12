@@ -276,8 +276,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
                       <span>Authenticated Account</span>
                     </span>
-                    <span className="text-[9px] bg-purple-100 text-purple-900 font-bold px-1.5 py-0.5 rounded border border-purple-200">
-                      👑 Super Admin
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${
+                      isSuperAdmin 
+                        ? 'bg-purple-100 text-purple-900 border-purple-200' 
+                        : 'bg-blue-100 text-blue-900 border-blue-200'
+                    }`}>
+                      {isSuperAdmin ? '👑 Super Admin' : '🛡️ Staff Member'}
                     </span>
                   </div>
                   <p className="text-[11px] text-amber-800 mt-0.5 font-medium">

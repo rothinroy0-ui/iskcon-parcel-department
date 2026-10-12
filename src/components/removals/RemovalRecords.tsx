@@ -25,11 +25,40 @@ export const RemovalRecords: React.FC = () => {
     restoreAllBirthdayRecords, 
     removeAnniversaryRecord,
     restoreAnniversaryRecord, 
-    restoreAllAnniversaryRecords 
+    restoreAllAnniversaryRecords,
+    softDeletedDevotees,
+    restoreSoftDeletedDevotee,
+    restoreAllSoftDeletedDevotees,
+    permanentlyDeleteDevotee
   } = useData();
 
+  const [activeTab, setActiveTab] = useState<'all' | 'devotees' | 'birthdays' | 'anniversaries'>('all');
   const [notification, setNotification] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const handleRestoreDevotee = async (devId: string, name: string) => {
+    const res = await restoreSoftDeletedDevotee(devId);
+    if (res.success) {
+      triggerCelebration(`🎉 Successfully restored devotee "${name}" to Congregation Directory!`);
+    }
+  };
+
+  const handleRestoreAllDevotees = async () => {
+    const res = await restoreAllSoftDeletedDevotees();
+    if (res.success) {
+      triggerCelebration(`🎉 All soft-deleted devotee records restored!`);
+    }
+  };
+
+  const handlePermanentDelete = async (devId: string, name: string) => {
+    if (window.confirm(`⚠️ Security Confirmation: Are you sure you want to permanently erase devotee "${name}"? This cannot be undone.`)) {
+      const res = await permanentlyDeleteDevotee(devId);
+      if (res.success) {
+        setNotification(`Permanently erased record for "${name}".`);
+        setTimeout(() => setNotification(null), 3500);
+      }
+    }
+  };
 
   const triggerCelebration = (msg: string) => {
     confetti({
@@ -168,8 +197,22 @@ export const RemovalRecords: React.FC = () => {
     return parts.length > 0 ? parts.join(' , ') : 'Address not specified';
   };
 
+  const filteredSoftDeletedDevotees = softDeletedDevotees.filter((d) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      d.id.toLowerCase().includes(q) ||
+      d.legal_name.toLowerCase().includes(q) ||
+      (d.spiritual_name && d.spiritual_name.toLowerCase().includes(q)) ||
+      (d.phone && d.phone.includes(q)) ||
+      (d.city && d.city.toLowerCase().includes(q))
+    );
+  });
+
+  const totalRemoved = softDeletedDevotees.length + birthdayRemovals.length + anniversaryRemovals.length;
+
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <div className="space-y-6 animate-in fade-in duration-200">
       {/* Toast Notification */}
       {notification && (
         <div className="fixed top-20 right-6 z-50 bg-emerald-600 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center space-x-2 text-sm font-semibold animate-in slide-in-from-top-4 duration-200">
@@ -181,11 +224,16 @@ export const RemovalRecords: React.FC = () => {
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
-          <h1 className="text-2xl font-black font-serif text-slate-900 tracking-tight flex items-center space-x-2.5">
-            <span>Removal Records</span>
-          </h1>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-2xl font-black font-serif text-slate-900 tracking-tight flex items-center space-x-2.5">
+              <span>Removal Records</span>
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-200">
+              👑 Super Admin Archive ({totalRemoved})
+            </span>
+          </div>
           <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
-            Soft-removed records — nothing is ever deleted · Restore anytime
+            Soft-removed records & archive — nothing is ever lost · Restore anytime
           </p>
         </div>
 
@@ -202,7 +250,183 @@ export const RemovalRecords: React.FC = () => {
         </div>
       </div>
 
+      {/* Sub-Tabs: Filter by category */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            activeTab === 'all'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          All Removed ({totalRemoved})
+        </button>
+        <button
+          onClick={() => setActiveTab('devotees')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+            activeTab === 'devotees'
+              ? 'bg-rose-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <span>👤 Devotee Profiles</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-900 font-bold">
+            {softDeletedDevotees.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('birthdays')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+            activeTab === 'birthdays'
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <span>🎂 Birthday Removals</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 text-amber-900 font-bold">
+            {birthdayRemovals.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('anniversaries')}
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+            activeTab === 'anniversaries'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <span>💍 Anniversary Removals</span>
+          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-100 text-purple-900 font-bold">
+            {anniversaryRemovals.length}
+          </span>
+        </button>
+      </div>
+
+      {/* 0. Soft-Deleted Devotee Profiles Section */}
+      {(activeTab === 'all' || activeTab === 'devotees') && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+          {/* Section Header */}
+          <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center space-x-3">
+              <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <span className="text-xl">👤</span>
+                <span>Devotee Profiles (Soft-Deleted)</span>
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-200">
+                {softDeletedDevotees.length}
+              </span>
+            </div>
+
+            <button
+              onClick={handleRestoreAllDevotees}
+              disabled={softDeletedDevotees.length === 0}
+              className={`px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                softDeletedDevotees.length > 0
+                  ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Restore All Devotees</span>
+            </button>
+          </div>
+
+          {/* Devotee Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  <th className="py-3 px-4 w-14 text-center">Photo</th>
+                  <th className="py-3 px-4 min-w-[180px]">Initiated Name</th>
+                  <th className="py-3 px-4 min-w-[150px]">Legal Name</th>
+                  <th className="py-3 px-4 min-w-[120px]">Status</th>
+                  <th className="py-3 px-4 min-w-[130px]">Devotee ID</th>
+                  <th className="py-3 px-4 min-w-[130px]">Phone</th>
+                  <th className="py-3 px-4 min-w-[150px]">City / State</th>
+                  <th className="py-3 px-4 text-center min-w-[170px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSoftDeletedDevotees.length > 0 ? (
+                  filteredSoftDeletedDevotees.map((dev) => {
+                    const devTitle = dev.spiritual_name || dev.legal_name;
+                    return (
+                      <tr key={dev.id} className="hover:bg-amber-50/40 transition-colors">
+                        <td className="py-4 px-4 text-center">
+                          <DevoteeAvatar
+                            photoUrl={dev.photo_url}
+                            name={devTitle}
+                            id={dev.id}
+                            size="sm"
+                          />
+                        </td>
+                        <td className="py-4 px-4 font-bold text-slate-900">
+                          {dev.spiritual_name || '—'}
+                        </td>
+                        <td className="py-4 px-4 font-semibold text-slate-700">
+                          {dev.legal_name}
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            {dev.initiation_status}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 font-mono text-[11px] text-slate-500">
+                          {dev.id}
+                        </td>
+                        <td className="py-4 px-4 font-mono text-slate-700">
+                          {dev.phone || '—'}
+                        </td>
+                        <td className="py-4 px-4 text-slate-700">
+                          {dev.city}, {dev.state}
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <div className="flex items-center justify-center space-x-2">
+                            <button
+                              onClick={() => handleRestoreDevotee(dev.id, devTitle)}
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition-all inline-flex items-center space-x-1 shadow-xs cursor-pointer"
+                              title="Restore to active Devotee Directory"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Restore</span>
+                            </button>
+                            <button
+                              onClick={() => handlePermanentDelete(dev.id, devTitle)}
+                              className="px-2.5 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition-all inline-flex items-center space-x-1 cursor-pointer"
+                              title="Permanently erase record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Purge</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <span className="text-4xl">✨</span>
+                        <h3 className="font-bold text-slate-800 text-sm">
+                          No soft-deleted devotee profiles
+                        </h3>
+                        <p className="text-xs text-slate-400 max-w-sm">
+                          Devotees removed from the directory are moved here safely — restore anytime with 1 click.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* 1. Birthday Removal List Section */}
+      {(activeTab === 'all' || activeTab === 'birthdays') && (
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Section Header */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -332,8 +556,10 @@ export const RemovalRecords: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
 
       {/* 2. Anniversary Removal List Section */}
+      {(activeTab === 'all' || activeTab === 'anniversaries') && (
       <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Section Header */}
         <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
@@ -475,6 +701,7 @@ export const RemovalRecords: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
     </div>
   );
 };

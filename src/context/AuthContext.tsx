@@ -59,6 +59,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           password: existingOwner?.password || 'Rothin@108#Manual',
         };
 
+        const existingStaff = parsed.find(
+          (u) => u.email.toLowerCase() === 'staff@iskcon.org'
+        );
+
+        const staffUser: UserProfile = {
+          id: existingStaff?.id || 'user-staff',
+          email: 'staff@iskcon.org',
+          full_name: existingStaff?.full_name || 'Bhakta Amit',
+          spiritual_name: existingStaff?.spiritual_name || 'Bhakta Amit Kumar',
+          role: 'STAFF',
+          department_name: existingStaff?.department_name || 'Parcel & Logistics Department',
+          avatar_url: existingStaff?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          created_at: existingStaff?.created_at || '2025-01-01T00:00:00Z',
+          is_active: true,
+          is_owner: false,
+          password: existingStaff?.password || 'Staff@108#Manual',
+        };
+
         // Purge legacy demo users
         const LEGACY_EMAILS_TO_REMOVE = new Set([
           'ysrathinroy@gmail.com',
@@ -69,10 +87,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ]);
 
         const customUsers = parsed
-          .filter((u) => u.email.toLowerCase() !== 'rothinroy0@gmail.com' && !LEGACY_EMAILS_TO_REMOVE.has(u.email.toLowerCase()))
+          .filter((u) => 
+            u.email.toLowerCase() !== 'rothinroy0@gmail.com' && 
+            u.email.toLowerCase() !== 'staff@iskcon.org' && 
+            !LEGACY_EMAILS_TO_REMOVE.has(u.email.toLowerCase())
+          )
           .map((u) => ({ ...u, is_owner: false }));
 
-        list = [ownerUser, ...customUsers];
+        list = [ownerUser, staffUser, ...customUsers];
       } catch {
         list = INITIAL_USERS;
       }
@@ -158,14 +180,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         password === 'Rothin@108#Manual' ||
         password === 'Admin@108#Manual'
       );
-      if (matched.password && !isOwnerBypass) {
+
+      const isStaffAccount = matched.email.toLowerCase() === 'staff@iskcon.org';
+      const isStaffBypass = isStaffAccount && (
+        password === 'Staff@108#Manual' ||
+        password === 'Staff@108' ||
+        password === 'HareKrishna@108'
+      );
+
+      const hasValidBypass = isOwnerBypass || isStaffBypass;
+
+      if (matched.password && !hasValidBypass) {
         if (matched.password !== password) {
           return { 
             success: false, 
             message: 'Incorrect password! Please enter the manual password created for this account or click "Forgot Password" below.' 
           };
         }
-      } else if (!matched.password && !isOwnerBypass) {
+      } else if (!matched.password && !hasValidBypass) {
         // Fallback for legacy account with no password yet
         if (password.length < 4) {
           return { success: false, message: 'Password must be at least 4 characters.' };
